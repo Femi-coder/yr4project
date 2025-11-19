@@ -135,6 +135,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
               <span>850 Prob Points Acquired</span>
+              
             </div>
           </div>
 

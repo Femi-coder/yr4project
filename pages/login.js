@@ -128,6 +128,15 @@ export default function Login() {
                             Register
                         </a>
                     </p>
+                    <p className="text-sm text-slate-500 mt-4">
+                        Forgot your password?{" "}
+                        <a
+                            href="/forgotpassword"
+                            className="text-indigo-600 font-medium hover:underline"
+                        >
+                            Reset your password
+                        </a>
+                    </p>
                 </div>
             </div>
         </div>
