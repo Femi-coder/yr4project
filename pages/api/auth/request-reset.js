@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         );
 
         const baseUrl =
-            process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+            process.env.NEXT_PUBLIC_BASE_URL || "https://yr4project.vercel.app";
 
         const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(
             email
