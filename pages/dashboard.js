@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
+
+
 const mySpaces = [
   {
     title: "Nutrition & Health Research",
@@ -55,6 +57,15 @@ export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
 
+
+  const [mathSpace, setMathSpace] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/getMathSpace")
+      .then((res) => res.json())
+      .then((data) => setMathSpace(data.space));
+  }, []);
+
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
     const name = localStorage.getItem("userName");
@@ -75,6 +86,7 @@ export default function Dashboard() {
       </div>
     );
   }
+
 
   const handleLogout = () => {
     localStorage.clear();
@@ -135,11 +147,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
               <span>850 Prob Points Acquired</span>
-              
+
             </div>
           </div>
 
-          {/* Your spaces */}
+          {/* My spaces */}
           <section className="mb-10">
             <h2 className="text-xl font-semibold mb-4">
               Your Collaborative Spaces
@@ -206,10 +218,53 @@ export default function Dashboard() {
                   </button>
                 </div>
               ))}
+
+              {mathSpace && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
+                  <div>
+                    <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg mb-2">
+                      {mathSpace.icon}
+                    </div>
+                    <h3 className="font-semibold mb-1 text-sm md:text-base">
+                      {mathSpace.title}
+                    </h3>
+                    <p className="text-xs md:text-sm text-gray-600 mb-4">
+                      {mathSpace.desc}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      const res = await fetch("/api/joinMathSpace", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          email: user.email,
+                          name: user.name,
+                        }),
+                      });
+
+                      const data = await res.json().catch(() => null);
+
+                      if (res.status === 200) {
+                        router.push("/spaces/math");
+                      } else {
+                        alert("Join Failed");
+                      }
+                    }}
+                    className="mt-auto w-full rounded-md bg-purple-600 text-white text-xs md:text-sm py-2"
+                  >
+                    Join
+                  </button>
+
+                </div>
+              )}
+
             </div>
           </section>
         </div>
       </main>
+
 
       {/* Create Space button bottom-right */}
       <button className="fixed bottom-6 right-6 bg-purple-600 text-white rounded-full px-6 py-3 text-sm font-medium shadow-lg">
