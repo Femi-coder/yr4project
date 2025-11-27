@@ -19,6 +19,7 @@ export default function handler(req, res) {
         io.on("connection", (socket) => {
             console.log("Socket connected:", socket.id);
 
+            // Personal dm
             socket.on("join-room", (room) => {
                 console.log("Joining room:", room);
                 socket.join(room);
@@ -28,10 +29,22 @@ export default function handler(req, res) {
                 console.log("Broadcasting:", room, sender, message);
                 socket.to(room).emit("receive-message", { sender, message });
             });
+
+        // Space chat
+        socket.on("join-space", (spaceId) => {
+            console.log("Joining space room:", spaceId);
+            socket.join(spaceId);
         });
 
-        res.socket.server.io = io;
-    }
+        socket.on("space-message", (data) => {
+            console.log("Space -> Broadcasting:", data.spaceId, data);
+            io.to(data.spaceId).emit("space-message", data);
+        });
+    });
 
-    res.status(200).json({ message: "Socket.IO server running" });
+
+    res.socket.server.io = io;
+}
+
+res.status(200).json({ message: "Socket.IO server running" });
 }
