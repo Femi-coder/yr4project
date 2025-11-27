@@ -27,11 +27,20 @@ export default function MathSpace() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-3xl font-semibold mb-4">
-        {mathSpace.title} Members
-      </h1>
-      <p className="text-gray-600 mb-6">{mathSpace.desc}</p>
+    <div className="max-w-4xl mx-auto px-6 py-10">
+      {/* Top Section */}
+      <div className="bg-purple-100 border border-purple-300 rounded-xl p-6 mb-8 shadow-sm">
+        <h1 className="text-3xl font-semibold text-purple-800 mb-2">
+          {mathSpace.icon || "📘"} {mathSpace.title}
+        </h1>
+        <p className="text-gray-700 mb-3">{mathSpace.desc}</p>
+        <span className="text-sm font-medium text-purple-700">
+          👥 {mathSpace.members.length} Members
+        </span>
+      </div>
+
+      {/* Members List */}
+      <h2 className="text-xl font-semibold mb-4">Members</h2>
 
       <div className="space-y-3">
         {mathSpace.members.length === 0 && (
@@ -39,11 +48,11 @@ export default function MathSpace() {
         )}
 
         {mathSpace.members
-          .filter((m) => m.email !== currentUserEmail) //hides the current user
+          .filter((m) => m.email !== currentUserEmail)
           .map((m, index) => (
             <div
               key={index}
-              className="flex items-center justify-between bg-white shadow-sm p-4 rounded-lg border"
+              className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition"
             >
               <div>
                 <p className="font-medium">{m.name}</p>
@@ -52,13 +61,12 @@ export default function MathSpace() {
 
               <Link
                 href={`/dm/${encodeURIComponent(m.email)}`}
-                className="bg-purple-600 text-white px-3 py-1 rounded-md text-sm"
+                className="bg-purple-600 text-white px-3 py-1 rounded-md text-sm hover:bg-purple-700 transition"
               >
                 DM
               </Link>
             </div>
           ))}
-
       </div>
     </div>
   );

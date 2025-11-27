@@ -1,26 +1,37 @@
 import { Server } from "socket.io";
 
+export const config = {
+    api: {
+        bodyParser: false
+    }
+};
+
 export default function handler(req, res) {
-  if (!res.socket.server.io) {
-    const io = new Server(res.socket.server, {
-      path: "/api/socket",
-      addTrailingSlash: false,
-    });
+    if (!res.socket.server.io) {
 
-    io.on("connection", (socket) => {
-      console.log("User connected:", socket.id);
+        console.log("Initializing Socket.IO server...");
 
-      socket.on("join-room", (room) => {
-        socket.join(room);
-      });
+        const io = new Server(res.socket.server, {
+            path: "/api/socket",
+            addTrailingSlash: false,
+        });
 
-      socket.on("send-message", ({ room, sender, message }) => {
-        io.to(room).emit("receive-message", { sender, message });
-      });
-    });
+        io.on("connection", (socket) => {
+            console.log("Socket connected:", socket.id);
 
-    res.socket.server.io = io;
-  }
+            socket.on("join-room", (room) => {
+                console.log("Joining room:", room);
+                socket.join(room);
+            });
 
-  res.end();
+            socket.on("send-message", ({ room, sender, message }) => {
+                console.log("Broadcasting:", room, sender, message);
+                socket.to(room).emit("receive-message", { sender, message });
+            });
+        });
+
+        res.socket.server.io = io;
+    }
+
+    res.status(200).json({ message: "Socket.IO server running" });
 }

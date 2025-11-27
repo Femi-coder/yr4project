@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 
 
 
-const mySpaces = [
+const mySpacesStatic = [
   {
     title: "Nutrition & Health Research",
     desc: "Exchange insights on diet analysis, LPR studies, and food microbiology data.",
@@ -93,6 +93,17 @@ export default function Dashboard() {
     router.push("/login");
   };
 
+  const mySpaces = [
+    ...mySpacesStatic,
+    ...(mathSpace?.members?.some((m) => m.email === user.email)
+      ? [{
+        title: mathSpace.title,
+        desc: mathSpace.desc,
+        members: mathSpace.members.length,
+        icon: mathSpace.icon ?? "📘",
+      }]
+      : [])
+  ];
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Navbar */}
@@ -180,7 +191,17 @@ export default function Dashboard() {
                       👥 {space.members} Members
                     </span>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1 rounded-md bg-purple-600 text-white text-xs">
+                      <button
+                        onClick={() => {
+                          if (space.title === mathSpace?.title) {
+                            router.push("/spaces/math");
+                          } else {
+                            // this is a static space - no page yet
+                            alert("This static space has no page yet.");
+                          }
+                        }}
+                        className="px-3 py-1 rounded-md bg-purple-600 text-white text-xs"
+                      >
                         Open
                       </button>
                       <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 text-xs">
