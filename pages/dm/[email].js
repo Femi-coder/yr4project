@@ -4,7 +4,7 @@ import io from "socket.io-client";
 
 export default function DirectMessage() {
     const router = useRouter();
-    const { email } = router.query;
+    const { email, name } = router.query;
 
     const socketRef = useRef(null);      // ensures a single socket
     const [messages, setMessages] = useState([]);
@@ -79,19 +79,19 @@ export default function DirectMessage() {
 
     return (
         <div className="max-w-xl mx-auto p-6">
-            <h1 className="text-2xl font-semibold mb-4">Chat with {email}</h1>
+            <h1 className="text-2xl font-semibold mb-4">Chat with {name || email}</h1>
 
             <div className="border rounded-md p-4 h-96 overflow-y-auto bg-white">
                 {messages.map((msg, index) => (
                     <p
                         key={index}
                         className={`mb-2 ${msg.sender === currentUserEmail
-                                ? "text-purple-600 text-right"
-                                : "text-gray-700"
+                            ? "text-purple-600 text-right"
+                            : "text-gray-700"
                             }`}
                     >
                         <strong>
-                            {msg.sender === currentUserEmail ? "You" : msg.sender}:
+                            {msg.sender === currentUserEmail ? "You" : name}:
                         </strong>{" "}
                         {msg.message}
                     </p>
