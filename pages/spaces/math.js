@@ -88,84 +88,105 @@ export default function MathSpace() {
       </div>
     );
   }
-
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100">
 
-      {/* Left Sidebar — Members */}
-      <aside className="w-72 bg-white border-r shadow-sm p-4">
-        <h2 className="text-lg font-semibold mb-4">Members</h2>
+      {/* LEFT SIDEBAR */}
+      <aside className="w-64 bg-white border-r shadow-sm p-5 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4 text-gray-700">Members</h2>
 
-        {mathSpace.members.map((m, i) => {
-          const isYou = m.email === currentUserEmail;
-          return (
-            <div
-              key={i}
-              className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 transition mb-2"
-            >
-              <div className="flex items-center gap-3">
+        {(() => {
+          const sortedMembers = [...mathSpace.members].sort((a, b) => {
+            if (a.email === currentUserEmail) return -1;
+            if (b.email === currentUserEmail) return 1;
+            return a.name.localeCompare(b.name);
+          });
 
-                {/* Avatar Circle */}
-                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
-                  {m.name?.charAt(0).toUpperCase()}
+          return sortedMembers.map((m, i) => {
+            const isYou = m.email === currentUserEmail;
+
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer mb-2"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold shadow-sm">
+                    {m.name?.charAt(0).toUpperCase()}
+                  </div>
+
+                  <div className="leading-tight">
+                    <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
+                    <p className="text-xs text-gray-500">{m.email}</p>
+                  </div>
                 </div>
 
-
-
-                <div>
-                  <p className="font-medium">{isYou ? "You" : m.name}</p>
-                  <p className="text-gray-500 text-sm">{m.email}</p>
-                </div>
+                {!isYou && (
+                  <Link
+                    href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
+                    className="text-purple-600 text-xs font-semibold hover:underline"
+                  >
+                    DM
+                  </Link>
+                )}
               </div>
-              {!isYou && (
-                <Link
-                  href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
-                  className="ml-4 text-purple-600 font-semibold text-sm hover:underline whitespace-nowrap"
-                >
-                  DM
-                </Link>
-              )}
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </aside>
 
-      {/* Main Content — Space Dashboard */}
-      <main className="flex-1 p-10">
-        <h1 className="text-3xl font-bold text-purple-700 flex items-center gap-2 mb-3">
-          {mathSpace.icon || "📘"} {mathSpace.title}
-        </h1>
+      {/* MAIN CONTENT */}
+      <main className="flex-1 flex flex-col p-8 gap-6 overflow-y-auto">
 
-        <p className="text-gray-700 mb-6">{mathSpace.desc}</p>
+        {/* SPACE HEADER */}
+        <div className="bg-white p-6 rounded-xl shadow flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-purple-700 flex items-center gap-3">
+            <span className="text-3xl">{mathSpace.icon || "📘"}</span>
+            {mathSpace.title}
+          </h1>
 
-        {/* Announcements */}
-        <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-xl font-semibold mb-2">Announcements</h3>
-          <p className="text-gray-600">No announcements yet.</p>
+          <p className="text-gray-600">{mathSpace.desc}</p>
+          <p className="text-sm text-purple-700 font-medium">
+            👥 {mathSpace.members.length} Members
+          </p>
         </div>
 
-        {/* REAL-TIME SPACE CHAT */}
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-xl font-semibold mb-4">Discussion</h3>
+        {/* DISCUSSION AREA */}
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col h-[480px]">
+          <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
-          <div className="border rounded-lg h-64 p-4 overflow-y-auto bg-white" id="discussion-box">
-            {messages.map((msg, i) => (
-              <p
-                key={i}
-                className={`mb-2 ${msg.sender === currentUserEmail
-                  ? "text-purple-600 text-right"
-                  : "text-gray-800"
-                  }`}
-              >
-                <strong>{msg.sender === currentUserEmail ? "You" : msg.name}:</strong>{" "}
-                {msg.message}
-              </p>
-            ))}
+          {/* CHAT BOX */}
+          <div
+            className="flex-1 overflow-y-auto pr-2 space-y-3"
+            id="discussion-box"
+          >
+            {messages.map((msg, i) => {
+              const isMe = msg.sender === currentUserEmail;
+              return (
+                <div
+                  key={i}
+                  className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe
+                        ? "bg-purple-600 text-white rounded-br-none"
+                        : "bg-gray-200 text-gray-800 rounded-bl-none"
+                      }`}
+                  >
+                    <p className="text-xs font-semibold mb-1">
+                      {isMe ? "You" : msg.name}
+                    </p>
+                    <p>{msg.message}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="mt-3 flex gap-2">
+          {/* INPUT BOX */}
+          <div className="mt-4 flex gap-3">
             <input
-              className="flex-1 p-2 border rounded-md"
+              className="flex-1 p-3 border rounded-lg shadow-sm outline-purple-600"
               placeholder="Type a message..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -173,15 +194,28 @@ export default function MathSpace() {
             />
             <button
               onClick={sendMessage}
-              className="bg-purple-600 text-white px-4 py-2 rounded-md"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg shadow"
             >
               Send
             </button>
           </div>
         </div>
-
       </main>
+
+      {/* RIGHT SIDEBAR */}
+      <aside className="w-64 bg-white border-l shadow-sm p-5">
+        <h2 className="text-lg font-semibold mb-4 text-gray-700">Announcements</h2>
+
+        <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
+          <p className="text-sm text-gray-700">
+            No announcements yet.
+          </p>
+        </div>
+      </aside>
     </div>
   );
+
+
+
 }
 
