@@ -24,6 +24,16 @@ export default function MathSpace() {
       .then((data) => setMathSpace(data.space));
   }, []);
 
+  useEffect(() => {
+    if (!mathSpace) return;
+
+    fetch(`/api/getSpaceMessages?spaceId=${mathSpace._id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setMessages(data.messages);
+      });
+  }, [mathSpace]);
+
   // Real time space chat socket connection
   useEffect(() => {
     if (!mathSpace || !currentUserEmail) return;
@@ -60,6 +70,7 @@ export default function MathSpace() {
       sender: currentUserEmail,
       name: currentUserName,
       message: chatInput,
+      timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, msg]);
