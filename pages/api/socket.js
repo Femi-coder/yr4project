@@ -40,11 +40,9 @@ export default function handler(req, res) {
                 console.log("Space -> Broadcasting:", data.spaceId, data);
                 io.to(data.spaceId).emit("space-message", data);
 
-                //Save messages to DB to work on localhost and vercel
+                //Save messages to DB
                 try {
-                    const origin = req.headers.origin || "http://localhost:3000";
-
-                    await fetch(`${origin}/api/saveSpaceMessage`, {
+                    await fetch("http://localhost:3000/api/saveSpaceMessage", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
