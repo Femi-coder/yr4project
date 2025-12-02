@@ -7,10 +7,41 @@ export default function MathSpace() {
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
 
+  const formatTime = (ts) => {
+    const date = new Date(ts);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatDay = (ts) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString([], {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getDayLabel = (ts) => {
+    const messageDate = new Date(ts);
+    const today = new Date();
+
+    const diff = today.setHours(0, 0, 0, 0) - messageDate.setHours(0, 0, 0, 0);
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (diff === 0) return "Today";
+    if (diff === oneDay) return "Yesterday";
+
+    return formatDay(ts);
+  };
+
+
+
+
   //Space Chat
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const socketRef = useRef(null);
+
 
 
   useEffect(() => {
@@ -160,27 +191,49 @@ export default function MathSpace() {
             className="flex-1 overflow-y-auto pr-2 space-y-3"
             id="discussion-box"
           >
-            {messages.map((msg, i) => {
-              const isMe = msg.sender === currentUserEmail;
-              return (
-                <div
-                  key={i}
-                  className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe
-                        ? "bg-purple-600 text-white rounded-br-none"
-                        : "bg-gray-200 text-gray-800 rounded-bl-none"
-                      }`}
-                  >
-                    <p className="text-xs font-semibold mb-1">
-                      {isMe ? "You" : msg.name}
-                    </p>
-                    <p>{msg.message}</p>
+            {(() => {
+              let lastDate = null;
+
+              return messages.map((msg, i) => {
+                const dayLabel = getDayLabel(msg.timestamp);
+                const isNewDay = dayLabel !== lastDate;
+                lastDate = dayLabel;
+
+                const isMe = msg.sender === currentUserEmail;
+
+                return (
+                  <div key={i}>
+                    {/* Day Divider */}
+                    {isNewDay && (
+                      <div className="text-center my-3">
+                        <span className="text-xs text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+                          {dayLabel}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Message Bubble */}
+                    <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe
+                            ? "bg-purple-600 text-white rounded-br-none"
+                            : "bg-gray-200 text-gray-800 rounded-bl-none"
+                          }`}
+                      >
+                        <p className="text-xs font-semibold mb-1">
+                          {isMe ? "You" : msg.name}
+                        </p>
+                        <p>{msg.message}</p>
+                        <p className="text-[10px] opacity-70 mt-1 text-right">
+                          {formatTime(msg.timestamp)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
+
           </div>
 
           {/* INPUT BOX */}
