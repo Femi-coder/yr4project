@@ -6,6 +6,9 @@ export const config = {
     }
 };
 
+// Global Online Users
+let onlineUsers = {};
+
 export default function handler(req, res) {
     if (!res.socket.server.io) {
 
@@ -19,28 +22,30 @@ export default function handler(req, res) {
         io.on("connection", (socket) => {
             console.log("Socket connected:", socket.id);
 
-            // Personal dm
+            // Personal dm 
             socket.on("join-room", (room) => {
-                console.log("Joining room:", room);
                 socket.join(room);
             });
 
             socket.on("send-message", ({ room, sender, message }) => {
-                console.log("Broadcasting:", room, sender, message);
                 socket.to(room).emit("receive-message", { sender, message });
             });
 
-            // Space chat
+            // Online Status
+            socket.on("user-online", (email) => {
+                onlineUsers[email] = socket.id; // mark user as online
+                io.emit("online-users", onlineUsers); // update all clients
+            });
+
+            // Space chat 
             socket.on("join-space", (spaceId) => {
-                console.log("Joining space room:", spaceId);
                 socket.join(spaceId);
             });
 
             socket.on("space-message", async (data) => {
-                console.log("Space -> Broadcasting:", data.spaceId, data);
                 io.to(data.spaceId).emit("space-message", data);
 
-                //Save messages to DB
+                // Save messages to DB
                 try {
                     await fetch("http://localhost:3000/api/saveSpaceMessage", {
                         method: "POST",
@@ -54,8 +59,19 @@ export default function handler(req, res) {
                     console.error("Failed to save message:", err);
                 }
             });
-        });
 
+            // Handle disconnect
+            socket.on("disconnect", () => {
+                for (const email in onlineUsers) {
+                    if (onlineUsers[email] === socket.id) {
+                        delete onlineUsers[email]; // remove offline user
+                        break;
+                    }
+                }
+
+                io.emit("online-users", onlineUsers); // this updates all clients
+            });
+        });
 
         res.socket.server.io = io;
     }

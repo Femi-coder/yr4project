@@ -6,6 +6,7 @@ export default function MathSpace() {
   const [mathSpace, setMathSpace] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState({});
 
   const formatTime = (ts) => {
     const date = new Date(ts);
@@ -34,8 +35,9 @@ export default function MathSpace() {
     return formatDay(ts);
   };
 
-
-
+  const LeaveSpace = () => {
+    window.location.href = "/dashboard";
+  };
 
   //Space Chat
   const [messages, setMessages] = useState([]);
@@ -77,6 +79,14 @@ export default function MathSpace() {
 
     const socket = socketRef.current;
     const spaceId = mathSpace._id; // room ID
+
+    // Identify user as online
+    socket.emit("user-online", currentUserEmail);
+
+    // Listen for online users update
+    socket.on("online-users", (data) => {
+      setOnlineUsers(data);
+    });
 
     socket.emit("join-space", spaceId);
 
@@ -142,16 +152,30 @@ export default function MathSpace() {
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer mb-2"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold shadow-sm">
-                    {m.name?.charAt(0).toUpperCase()}
+
+                  {/* Avatar + Status */}
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold shadow-sm">
+                      {m.name?.charAt(0).toUpperCase()}
+                    </div>
+
+                    {/* ONLINE STATUS DOT */}
+                    <span
+                      className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white 
+            ${(m.email === currentUserEmail || onlineUsers[m.email])
+                          ? "bg-green-500"
+                          : "bg-red-500"}`}
+                    ></span>
                   </div>
 
+                  {/* Member text info */}
                   <div className="leading-tight">
                     <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
                     <p className="text-xs text-gray-500">{m.email}</p>
                   </div>
                 </div>
 
+                {/* DM button */}
                 {!isYou && (
                   <Link
                     href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
@@ -177,8 +201,14 @@ export default function MathSpace() {
           </h1>
 
           <p className="text-gray-600">{mathSpace.desc}</p>
-          <p className="text-sm text-purple-700 font-medium">
+          <p className="text-sm text-purple-700 font-medium flex items-center justify-between">
             👥 {mathSpace.members.length} Members
+             <button
+          onClick={LeaveSpace}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"
+        >
+          Exit Space
+        </button>
           </p>
         </div>
 
@@ -216,8 +246,8 @@ export default function MathSpace() {
                     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe
-                            ? "bg-purple-600 text-white rounded-br-none"
-                            : "bg-gray-200 text-gray-800 rounded-bl-none"
+                          ? "bg-purple-600 text-white rounded-br-none"
+                          : "bg-gray-200 text-gray-800 rounded-bl-none"
                           }`}
                       >
                         <p className="text-xs font-semibold mb-1">

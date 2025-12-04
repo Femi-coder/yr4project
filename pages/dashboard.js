@@ -37,14 +37,16 @@ const discoverSpaces = [
     icon: "📣",
   },
   {
-    title: "Content Creation Hub",
-    desc: "Brainstorm, plan, and produce high-quality content across various mediums.",
-    icon: "👜",
+    title: "Health & Wellbeing",
+    desc: "Support mental health, physical fitness, nutrition, lifestyle habits, and balance.",
+    members: 14,
+    icon: "💚",
   },
   {
-    title: "Community Forum",
-    desc: "Engage with peers, ask questions, and share knowledge across various topics.",
-    icon: "💡",
+    title: "Social Care Practice",
+    desc: "Discuss care work, community support, safeguarding, and social care studies.",
+    members: 12,
+    icon: "🧡",
   },
   {
     title: "Data Analytics Bootcamp",
@@ -104,6 +106,14 @@ export default function Dashboard() {
       }]
       : [])
   ];
+
+  const filteredDiscoverSpaces = discoverSpaces.filter(space =>
+    !(mathSpace?.members?.some(m => m.email === user.email) && space.title === mathSpace?.title)
+  );
+
+
+
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Navbar */}
@@ -218,7 +228,7 @@ export default function Dashboard() {
           <section className="mb-16">
             <h2 className="text-xl font-semibold mb-4">Discover Spaces</h2>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {discoverSpaces.map((space) => (
+              {filteredDiscoverSpaces.map((space) => (
                 <div
                   key={space.title}
                   className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between"
@@ -240,7 +250,7 @@ export default function Dashboard() {
                 </div>
               ))}
 
-              {mathSpace && (
+             {mathSpace && !mathSpace.members?.some(m => m.email === user.email) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
                   <div>
                     <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg mb-2">
