@@ -58,6 +58,7 @@ const discoverSpaces = [
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [fade, setFade] = useState(false);
 
 
   const [mathSpace, setMathSpace] = useState(null);
@@ -115,7 +116,10 @@ export default function Dashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div
+      className={`min-h-screen bg-gray-50 flex flex-col transition-opacity duration-500 ${fade ? "opacity-0" : "opacity-100"
+        }`}
+    >
       {/* Top Navbar */}
       <header className="w-full bg-purple-600 text-white">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -204,7 +208,10 @@ export default function Dashboard() {
                       <button
                         onClick={() => {
                           if (space.title === mathSpace?.title) {
+                           setFade(true);
+                           setTimeout(() => { 
                             router.push("/spaces/math");
+                           }, 500);
                           } else {
                             // this is a static space - no page yet
                             alert("This static space has no page yet.");
@@ -250,7 +257,7 @@ export default function Dashboard() {
                 </div>
               ))}
 
-             {mathSpace && !mathSpace.members?.some(m => m.email === user.email) && (
+              {mathSpace && !mathSpace.members?.some(m => m.email === user.email) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
                   <div>
                     <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg mb-2">
@@ -278,7 +285,12 @@ export default function Dashboard() {
                       const data = await res.json().catch(() => null);
 
                       if (res.status === 200) {
-                        router.push("/spaces/math");
+                        setFade(true);
+
+
+                        setTimeout(() => {
+                          router.push("/spaces/math");
+                        }, 500);
                       } else {
                         alert("Join Failed");
                       }
