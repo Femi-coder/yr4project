@@ -71,10 +71,10 @@ export default function MathSpace() {
   useEffect(() => {
     if (!mathSpace || !currentUserEmail) return;
 
-    fetch("/api/socket"); // Start backend socket server
-
     if (!socketRef.current) {
-      socketRef.current = io({ path: "/api/socket" });
+      socketRef.current = io("https://socket-server-cyma.onrender.com", {
+      transports: ["websocket"],
+      });
     }
 
     const socket = socketRef.current;
