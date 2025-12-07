@@ -34,6 +34,15 @@ export default function DirectMessage() {
                 const room = [me, other].sort().join("_");
                 console.log("Joining room:", room);
                 socket.emit("join-room", room);
+
+                fetch(`/api/getDM?roomId=${room}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setMessages(data.messages || []);
+
+
+
+                    });
             }
         });
 
@@ -51,7 +60,7 @@ export default function DirectMessage() {
         };
     }, [router.isReady, email]);
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         if (!input.trim()) return;
 
         const me = currentUserEmail.toLowerCase().trim();
@@ -70,6 +79,13 @@ export default function DirectMessage() {
 
         // send to receiver
         socketRef.current.emit("send-message", msg);
+
+        // Save to db
+        await fetch("/api/saveDM", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(msg)
+        });
 
         setInput("");
     };
