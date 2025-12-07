@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import io from "socket.io-client";
-import { Timestamp } from "mongodb";
 
 export default function DirectMessage() {
     const router = useRouter();
