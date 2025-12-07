@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import io from "socket.io-client";
+import { Timestamp } from "mongodb";
 
 export default function DirectMessage() {
     const router = useRouter();
@@ -19,14 +20,10 @@ export default function DirectMessage() {
 
         setCurrentUserEmail(me);
 
-        // Start backend server
-        fetch("/api/socket");
 
         // Create socket ONLY once
         if (!socketRef.current) {
-            socketRef.current = io({
-                path: "/api/socket",
-            });
+            socketRef.current = io("https://socket-server-cyma.onrender.com");
         }
 
         const socket = socketRef.current;
@@ -63,9 +60,10 @@ export default function DirectMessage() {
         const room = [me, other].sort().join("_");
 
         const msg = {
-            room,
+            roomId: room,
             sender: me,
             message: input,
+            timestamp: Date.now()
         };
 
         // show YOUR message once
