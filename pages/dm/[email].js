@@ -46,7 +46,7 @@ export default function DirectMessage() {
             }
         });
 
-        // Receive message — but IGNORE your own
+        // Receive message
         const handleReceive = (msg) => {
             if (msg.sender === me) return;
             console.log("Received:", msg);
