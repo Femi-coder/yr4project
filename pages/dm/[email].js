@@ -6,57 +6,48 @@ export default function DirectMessage() {
     const router = useRouter();
     const { email, name } = router.query;
 
-    const socketRef = useRef(null);      // ensures a single socket
+    const socketRef = useRef(null);
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [currentUserEmail, setCurrentUserEmail] = useState("");
 
+    // Establish socket connection once
+    useEffect(() => {
+        const SOCKET_URL =
+            process.env.NODE_ENV === "development"
+                ? "http://localhost:4000"
+                : "https://socket-server-cyma.onrender.com";
+
+        if (!socketRef.current) {
+            socketRef.current = io(SOCKET_URL, { transports: ["websocket"] });
+        }
+    }, []);
+
+    // Handle room join and initial message fetch
     useEffect(() => {
         if (!router.isReady) return;
 
         const me = localStorage.getItem("userEmail")?.toLowerCase().trim();
         const other = email?.toLowerCase().trim();
+        if (!me || !other) return;
 
         setCurrentUserEmail(me);
 
-
-        // Create socket ONLY once
-        if (!socketRef.current) {
-
-            const SOCKET_URL =
-                process.env.NODE_ENV === "development"
-                    ? "http://localhost:4000"
-                    : "https://socket-server-cyma.onrender.com";
-
-            socketRef.current = io(SOCKET_URL);
-        }
-
+        const room = [me, other].sort().join("_");
         const socket = socketRef.current;
 
-        socket.on("connect", () => {
-            console.log("Connected:", socket.id);
+        // Always join room immediately—fixes real-time issue
+        socket.emit("join-room", room);
 
-            if (me && other) {
-                const room = [me, other].sort().join("_");
-                console.log("Joining room:", room);
-                socket.emit("join-room", room);
+        // Load message history
+        fetch(`/api/getDM?roomId=${room}`)
+            .then(res => res.json())
+            .then(data => setMessages(data.messages || []));
 
-                fetch(`/api/getDM?roomId=${room}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        setMessages(data.messages || []);
-
-
-
-                    });
-            }
-        });
-
-        // Receive message
+        // Listener for real-time messages
         const handleReceive = (msg) => {
-            if (msg.sender === me) return;
-            console.log("Received:", msg);
-            setMessages((prev) => [...prev, msg]);
+            if (msg.sender === me) return; // ignore your own
+            setMessages(prev => [...prev, msg]);
         };
 
         socket.on("receive-message", handleReceive);
@@ -66,25 +57,7 @@ export default function DirectMessage() {
         };
     }, [router.isReady, email]);
 
-
-    useEffect(() => {
-        if (!router.isReady) return;
-
-        const me = localStorage.getItem("userEmail")?.toLowerCase().trim();
-        const other = email?.toLowerCase().trim();
-        if (!me || !other) return;
-
-        const room = [me, other].sort().join("_");
-
-        fetch(`/api/getDM?roomId=${room}`)
-            .then(res => res.json())
-            .then(data => {
-                setMessages(data.messages || []);
-            });
-    }, [router.isReady, email]);
-
-
-
+    // Send Message
     const sendMessage = async () => {
         if (!input.trim()) return;
 
@@ -96,35 +69,34 @@ export default function DirectMessage() {
             roomId: room,
             sender: me,
             message: input,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
 
-        // show YOUR message once
-        setMessages((prev) => [...prev, msg]);
+        // Show message instantly
+        setMessages(prev => [...prev, msg]);
 
-        // send to receiver
+        // Send through socket
         socketRef.current.emit("send-message", msg);
 
-        // Save to db
+        // Save to DB
         await fetch("/api/saveDM", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(msg)
+            body: JSON.stringify(msg),
         });
 
         setInput("");
     };
+
+    // UI
     return (
         <div className="h-screen flex items-center justify-center bg-gray-100 px-4">
-            {/* Chat Card */}
             <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg flex flex-col h-[85vh]">
 
-                {/* Hader */}
                 <header className="p-4 bg-purple-600 text-white font-semibold text-lg rounded-t-xl shadow">
                     Chat with {name || email}
                 </header>
 
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
                     {messages.map((msg, index) => {
                         const isMe = msg.sender === currentUserEmail;
@@ -135,8 +107,7 @@ export default function DirectMessage() {
                                 className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                             >
                                 <div
-                                    className={`max-w-xs px-4 py-2 rounded-xl shadow-sm 
-                                    ${isMe
+                                    className={`max-w-xs px-4 py-2 rounded-xl shadow-sm ${isMe
                                             ? "bg-purple-600 text-white rounded-br-none"
                                             : "bg-white text-gray-800 border rounded-bl-none"
                                         }`}
@@ -151,12 +122,11 @@ export default function DirectMessage() {
                     })}
                 </div>
 
-                {/* INPUT BAR */}
                 <div className="p-4 bg-white flex gap-3 border-t rounded-b-xl">
                     <input
                         className="flex-1 p-3 border rounded-xl shadow-sm outline-purple-600"
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={e => setInput(e.target.value)}
                         placeholder="Type a message..."
                     />
                     <button
@@ -166,9 +136,7 @@ export default function DirectMessage() {
                         Send
                     </button>
                 </div>
-
             </div>
         </div>
-
     );
 }
