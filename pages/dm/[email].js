@@ -22,7 +22,13 @@ export default function DirectMessage() {
 
         // Create socket ONLY once
         if (!socketRef.current) {
-            socketRef.current = io("https://socket-server-cyma.onrender.com");
+
+            const SOCKET_URL =
+                process.env.NODE_ENV === "development"
+                    ? "http://localhost:4000"
+                    : "https://socket-server-cyma.onrender.com";
+
+            socketRef.current = io(SOCKET_URL);
         }
 
         const socket = socketRef.current;
@@ -59,6 +65,25 @@ export default function DirectMessage() {
             socket.off("receive-message", handleReceive);
         };
     }, [router.isReady, email]);
+
+
+    useEffect(() => {
+        if (!router.isReady) return;
+
+        const me = localStorage.getItem("userEmail")?.toLowerCase().trim();
+        const other = email?.toLowerCase().trim();
+        if (!me || !other) return;
+
+        const room = [me, other].sort().join("_");
+
+        fetch(`/api/getDM?roomId=${room}`)
+            .then(res => res.json())
+            .then(data => {
+                setMessages(data.messages || []);
+            });
+    }, [router.isReady, email]);
+
+
 
     const sendMessage = async () => {
         if (!input.trim()) return;
