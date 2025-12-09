@@ -11,6 +11,7 @@ export default function MathSpace() {
   const [announcements, setAnnouncements] = useState([]);
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [annLevel, setAnnLevel] = useState("normal");
 
   const socketRef = useRef(null);
 
@@ -65,6 +66,7 @@ export default function MathSpace() {
 
     socket.off("announcement");
     socket.on("announcement", (data) => {
+      if (data.sender === currentUserEmail) return;
       setAnnouncements(prev => [...prev, data]);
     });
 
@@ -97,7 +99,9 @@ export default function MathSpace() {
     const announcement = {
       spaceId: mathSpace._id,
       sender: currentUserEmail,
+      senderName: currentUserName,
       text: annInput,
+      level: annLevel,
       timestamp: Date.now(),
     };
 
@@ -122,41 +126,56 @@ export default function MathSpace() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-indigo-100">
       {/* LEFT SIDEBAR */}
       <aside className="w-64 bg-white border-r shadow-sm p-5 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4 text-gray-700">Members</h2>
 
-        {mathSpace.members.sort((a, b) => a.name.localeCompare(b.name)).map((m, i) => {
-          const isYou = m.email === currentUserEmail;
+        {(() => {
+          const sortedMembers = [...mathSpace.members].sort((a, b) => {
+            if (a.email === currentUserEmail) return -1;
+            if (b.email === currentUserEmail) return 1;
+            return a.name.localeCompare(b.name);
+          });
 
-          return (
-            <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 mb-2">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
-                    {m.name.charAt(0).toUpperCase()}
+          return sortedMembers.map((m, i) => {
+            const isYou = m.email === currentUserEmail;
+
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 mb-2"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
+                      {m.name.charAt(0).toUpperCase()}
+                    </div>
+
+                    <span
+                      className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${onlineUsers[m.email] ? "bg-green-500" : "bg-red-500"
+                        }`}
+                    ></span>
                   </div>
-                  <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${
-                    onlineUsers[m.email] ? "bg-green-500" : "bg-red-500"
-                  }`}></span>
+
+                  <div>
+                    <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
+                    <p className="text-xs text-gray-500">{m.email}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
-                  <p className="text-xs text-gray-500">{m.email}</p>
-                </div>
+                {!isYou && (
+                  <Link
+                    href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
+                    className="text-purple-600 text-xs font-semibold hover:underline"
+                  >
+                    DM
+                  </Link>
+                )}
               </div>
-
-              {!isYou && (
-                <Link href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
-                      className="text-purple-600 text-xs font-semibold hover:underline">
-                  DM
-                </Link>
-              )}
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </aside>
 
       {/* MAIN CONTENT */}
@@ -169,7 +188,8 @@ export default function MathSpace() {
           <p className="text-gray-600">{mathSpace.desc}</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-6 flex flex-col h-[420px]">
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col flex-1 min-h-[500px]">
+
           <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
           <div className="flex-1 overflow-y-auto pr-2 space-y-3">
@@ -178,9 +198,8 @@ export default function MathSpace() {
 
               return (
                 <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${
-                    isMe ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-800"
-                  }`}>
+                  <div className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-800"
+                    }`}>
                     <p className="text-xs font-semibold mb-1">
                       {isMe ? "You" : msg.name}
                     </p>
@@ -206,30 +225,65 @@ export default function MathSpace() {
       </main>
 
       {/* RIGHT SIDEBAR */}
-      <aside className="w-96 bg-white border-l shadow-sm p-5 overflow-y-auto">
+      <aside className="w-100 bg-white border-l shadow-sm p-5 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4 text-gray-700">Announcements</h2>
 
         <div className="flex gap-2 mb-4">
+          <select
+            className="p-2 border rounded-lg outline-purple-600"
+            value={annLevel}
+            onChange={(e) => setAnnLevel(e.target.value)}
+          >
+            <option value="normal">Normal</option>
+            <option value="medium">Medium</option>
+            <option value="high">High Importance</option>
+          </select>
+
           <input
             className="flex-1 p-2 border rounded-lg outline-purple-600"
             placeholder="Post announcement..."
             value={annInput}
             onChange={(e) => setAnnInput(e.target.value)}
           />
-          <button onClick={sendAnnouncement} className="bg-purple-600 text-white px-4 py-2 rounded-lg">
+
+          <button
+            onClick={sendAnnouncement}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+          >
             Post
           </button>
         </div>
 
         <div className="space-y-3">
-          {announcements.map((a, i) => (
-            <div key={i} className="relative bg-yellow-100 border-l-4 border-yellow-400 p-3 rounded shadow-sm">
-              <p className="text-sm font-medium text-gray-800">{a.text}</p>
-              <p className="text-xs text-gray-500">
-                {new Date(a.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </div>
-          ))}
+          {announcements.map((a, i) => {
+            let bg = "bg-yellow-100 border-yellow-400";
+
+            if (a.level === "high") bg = "bg-red-100 border-red-500";
+            if (a.level === "medium") bg = "bg-orange-100 border-orange-400";
+            if (a.level === "normal") bg = "bg-green-100 border-green-400";
+
+            return (
+              <div
+                key={i}
+                className={`relative border-l-4 p-3 rounded shadow-sm ${bg}`}
+              >
+                <span className="absolute -left-2 -top-2 text-xl">📍</span>
+
+                <p className="text-sm font-medium text-gray-800">{a.text}</p>
+
+                <p className="text-xs font-semibold text-gray-700 mt-1">
+                  Posted by: {a.senderName || a.sender}
+                </p>
+
+                <p className="text-xs mt-1 text-gray-500">
+                  {new Date(a.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </aside>
     </div>

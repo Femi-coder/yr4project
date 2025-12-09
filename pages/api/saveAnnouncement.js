@@ -18,7 +18,9 @@ export default async function handler(req, res) {
     const result = await db.collection("announcements").insertOne({
       spaceId: String(spaceId),
       sender,
+      senderName,
       text,
+      level: LEVEL,
       timestamp,
     });
 
