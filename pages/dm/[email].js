@@ -11,58 +11,63 @@ export default function DirectMessage() {
     const [input, setInput] = useState("");
     const [currentUserEmail, setCurrentUserEmail] = useState("");
 
-    // Establish socket connection once
+    // setup socket and load chat
     useEffect(() => {
+        if (!router.isReady) return;
+
+        const me = localStorage.getItem("userEmail")?.trim().toLowerCase();
+        const other = email?.trim().toLowerCase();
+        if (!me || !other) return;
+
+        setCurrentUserEmail(me);
+
         const SOCKET_URL =
             process.env.NODE_ENV === "development"
                 ? "http://localhost:4000"
                 : "https://socket-server-cyma.onrender.com";
 
         if (!socketRef.current) {
-            socketRef.current = io(SOCKET_URL, { transports: ["websocket"] });
+            socketRef.current = io(SOCKET_URL, {
+                transports: ["websocket"],
+            });
         }
-    }, []);
 
-    // Handle room join and initial message fetch
-    useEffect(() => {
-        if (!router.isReady) return;
-
-        const me = localStorage.getItem("userEmail")?.toLowerCase().trim();
-        const other = email?.toLowerCase().trim();
-        if (!me || !other) return;
-
-        setCurrentUserEmail(me);
-
-        const room = [me, other].sort().join("_");
         const socket = socketRef.current;
+        const room = [me, other].sort().join("_");
 
-        // Always join room immediately—fixes real-time issue
         socket.emit("join-room", room);
 
-        // Load message history
+        // load previous messages
         fetch(`/api/getDM?roomId=${room}`)
             .then(res => res.json())
             .then(data => setMessages(data.messages || []));
 
-        // Listener for real-time messages
-        const handleReceive = (msg) => {
-            if (msg.sender === me) return; // ignore your own
-            setMessages(prev => [...prev, msg]);
-        };
+        // listen for new messages
+        socket.on("receive-message", (msg) => {
+            setMessages((prev) => [...prev, msg]);
+        });
 
-        socket.on("receive-message", handleReceive);
+        // polling fallback
+        const interval = setInterval(() => {
+            fetch(`/api/getDM?roomId=${room}`)
+                .then(res => res.json())
+                .then(data => setMessages(data.messages || []));
+        }, 3000);
 
         return () => {
-            socket.off("receive-message", handleReceive);
+            socket.off("receive-message");
+            clearInterval(interval);
         };
+
     }, [router.isReady, email]);
 
-    // Send Message
+
+    // send message
     const sendMessage = async () => {
         if (!input.trim()) return;
 
-        const me = currentUserEmail.toLowerCase().trim();
-        const other = email.toLowerCase().trim();
+        const me = currentUserEmail;
+        const other = email.trim().toLowerCase();
         const room = [me, other].sort().join("_");
 
         const msg = {
@@ -72,13 +77,13 @@ export default function DirectMessage() {
             timestamp: Date.now(),
         };
 
-        // Show message instantly
-        setMessages(prev => [...prev, msg]);
+        // show instantly
+        setMessages((prev) => [...prev, msg]);
 
-        // Send through socket
+        // send to socket server
         socketRef.current.emit("send-message", msg);
 
-        // Save to DB
+        // save to db
         await fetch("/api/saveDM", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -88,7 +93,6 @@ export default function DirectMessage() {
         setInput("");
     };
 
-    // UI
     return (
         <div className="h-screen flex items-center justify-center bg-gray-100 px-4">
             <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg flex flex-col h-[85vh]">
@@ -102,14 +106,11 @@ export default function DirectMessage() {
                         const isMe = msg.sender === currentUserEmail;
 
                         return (
-                            <div
-                                key={index}
-                                className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                            >
+                            <div key={index} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                 <div
                                     className={`max-w-xs px-4 py-2 rounded-xl shadow-sm ${isMe
-                                            ? "bg-purple-600 text-white rounded-br-none"
-                                            : "bg-white text-gray-800 border rounded-bl-none"
+                                        ? "bg-purple-600 text-white rounded-br-none"
+                                        : "bg-white text-gray-800 border rounded-bl-none"
                                         }`}
                                 >
                                     <p className="text-xs font-semibold mb-1 opacity-80">
@@ -126,7 +127,7 @@ export default function DirectMessage() {
                     <input
                         className="flex-1 p-3 border rounded-xl shadow-sm outline-purple-600"
                         value={input}
-                        onChange={e => setInput(e.target.value)}
+                        onChange={(e) => setInput(e.target.value)}
                         placeholder="Type a message..."
                     />
                     <button

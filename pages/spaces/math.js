@@ -7,6 +7,9 @@ export default function MathSpace() {
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
   const [onlineUsers, setOnlineUsers] = useState({});
+  const [annInput, setAnnInput] = useState("");
+  const [announcements, setAnnouncements] = useState([]);
+
 
   const formatTime = (ts) => {
     const date = new Date(ts);
@@ -67,13 +70,22 @@ export default function MathSpace() {
       });
   }, [mathSpace]);
 
+  useEffect(() => {
+    if (!mathSpace) return;
+
+    fetch(`/api/getAnnouncements?spaceId=${mathSpace._id}`)
+        .then(res => res.json())
+        .then(data => setAnnouncements(data.announcements || []));
+}, [mathSpace]);
+
+
   // Real time space chat socket connection
   useEffect(() => {
     if (!mathSpace || !currentUserEmail) return;
 
     if (!socketRef.current) {
       socketRef.current = io("https://socket-server-cyma.onrender.com", {
-      transports: ["websocket"],
+        transports: ["websocket"],
       });
     }
 
@@ -203,17 +215,17 @@ export default function MathSpace() {
           <p className="text-gray-600">{mathSpace.desc}</p>
           <p className="text-sm text-purple-700 font-medium flex items-center justify-between">
             👥 {mathSpace.members.length} Members
-             <button
-          onClick={LeaveSpace}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"
-        >
-          Exit Space
-        </button>
+            <button
+              onClick={LeaveSpace}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"
+            >
+              Exit Space
+            </button>
           </p>
         </div>
 
         {/* DISCUSSION AREA */}
-        <div className="bg-white rounded-xl shadow p-6 flex flex-col h-[480px]">
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col h-[420px]">
           <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
           {/* CHAT BOX */}
@@ -286,19 +298,43 @@ export default function MathSpace() {
       </main>
 
       {/* RIGHT SIDEBAR */}
-      <aside className="w-64 bg-white border-l shadow-sm p-5">
+      <aside className="w-100 bg-white border-l shadow-sm p-5 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4 text-gray-700">Announcements</h2>
 
-        <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
-          <p className="text-sm text-gray-700">
-            No announcements yet.
-          </p>
+        <div className="flex gap-2 mb-4">
+          <input
+            className="flex-1 p-2 border rounded-lg outline-purple-600"
+            placeholder="Post announcement..."
+            value={annInput}
+            onChange={(e) => setAnnInput(e.target.value)}
+          />
+          <button
+            onClick={() => sendAnnouncement()}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+          >
+            Post
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {announcements.length === 0 && (
+            <p className="text-sm text-gray-500">No announcements yet.</p>
+          )}
+
+          {announcements.map((a, i) => (
+            <div key={i} className="relative bg-yellow-100 border-l-4 border-yellow-400 p-3 rounded shadow-sm">
+              <span className="absolute -left-2 -top-2 text-xl">📍</span>
+              <p className="text-sm font-medium text-gray-800">{a.text}</p>
+              <p className="text-xs mt-1 text-gray-500">
+                {new Date(a.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          ))}
         </div>
       </aside>
+
+
+
     </div>
   );
-
-
-
 }
-
