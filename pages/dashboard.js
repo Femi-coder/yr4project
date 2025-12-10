@@ -208,10 +208,10 @@ export default function Dashboard() {
                       <button
                         onClick={() => {
                           if (space.title === mathSpace?.title) {
-                           setFade(true);
-                           setTimeout(() => { 
-                            router.push("/spaces/math");
-                           }, 500);
+                            setFade(true);
+                            setTimeout(() => {
+                              router.push("/spaces/math");
+                            }, 500);
                           } else {
                             // this is a static space - no page yet
                             alert("This static space has no page yet.");

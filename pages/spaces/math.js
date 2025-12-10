@@ -66,7 +66,6 @@ export default function MathSpace() {
 
     socket.off("announcement");
     socket.on("announcement", (data) => {
-      if (data.sender === currentUserEmail) return;
       setAnnouncements(prev => [...prev, data]);
     });
 
@@ -93,7 +92,8 @@ export default function MathSpace() {
     setChatInput("");
   };
 
-  const sendAnnouncement = async () => {
+
+  const sendAnnouncement = () => {
     if (!annInput.trim()) return;
 
     const announcement = {
@@ -105,17 +105,11 @@ export default function MathSpace() {
       timestamp: Date.now(),
     };
 
-    setAnnouncements(prev => [...prev, announcement]);
     socketRef.current.emit("announcement", announcement);
-
-    await fetch("/api/saveAnnouncement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(announcement),
-    });
 
     setAnnInput("");
   };
+
 
   if (!mathSpace) {
     return (
@@ -180,13 +174,28 @@ export default function MathSpace() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col p-8 gap-6 overflow-y-auto">
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h1 className="text-2xl font-bold text-purple-700 flex items-center gap-3">
-            <span className="text-3xl">{mathSpace.icon}</span>
-            {mathSpace.title}
-          </h1>
-          <p className="text-gray-600">{mathSpace.desc}</p>
+
+        <div className="bg-white p-6 rounded-xl shadow flex items-center justify-between">
+
+
+          <div>
+            <h1 className="text-2xl font-bold text-purple-700 flex items-center gap-3">
+              <span className="text-3xl">{mathSpace.icon}</span>
+              {mathSpace.title}
+            </h1>
+            <p className="text-gray-600">{mathSpace.desc}</p>
+          </div>
+
+
+          <Link
+            href="/dashboard"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-4 rounded-md text-xs font-medium shadow"
+          >
+            Exit
+          </Link>
+
         </div>
+
 
         <div className="bg-white rounded-xl shadow p-6 flex flex-col flex-1 min-h-[500px]">
 

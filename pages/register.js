@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 
 export default function Register() {
+    const router = useRouter();
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -9,6 +11,7 @@ export default function Register() {
         course: "",
         year: "",
     });
+
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -32,6 +35,7 @@ export default function Register() {
             }
 
             alert("Registered successfully!");
+            router.push("/login");
 
         } catch (error) {
             console.error(error);
