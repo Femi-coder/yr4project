@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { spaceId, sender, text, timestamp } = req.body;
+    const { spaceId, sender, senderName, text, level, timestamp } = req.body;
 
     console.log("Incoming body:", req.body);
 
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       sender,
       senderName,
       text,
-      level: LEVEL,
+      level,
       timestamp,
     });
 

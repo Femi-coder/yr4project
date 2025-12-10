@@ -225,7 +225,7 @@ export default function MathSpace() {
       </main>
 
       {/* RIGHT SIDEBAR */}
-      <aside className="w-100 bg-white border-l shadow-sm p-5 overflow-y-auto">
+      <aside className="w-120 bg-white border-l shadow-sm p-5 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4 text-gray-700">Announcements</h2>
 
         <div className="flex gap-2 mb-4">
