@@ -2,72 +2,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
 
-
-const mySpacesStatic = [
-  {
-    title: "Nutrition & Health Research",
-    desc: "Exchange insights on diet analysis, LPR studies, and food microbiology data.",
-    members: 7,
-    icon: "💜",
-  },
-  {
-    title: "Software Development",
-    desc: "Plan weekly sprints, assign tasks, and review project progress collaboratively.",
-    members: 12,
-    icon: "💻",
-  },
-  {
-    title: "Entrepreneurship Start-Up Space",
-    desc: "Pitch new business ideas and refine models through weekly challenges.",
-    members: 5,
-    icon: "🚀",
-  },
-  {
-    title: "Automation & Robotics",
-    desc: "Collaborate on robot assembly designs and algorithm testing.",
-    members: 8,
-    icon: "🤖",
-  },
-];
-
-const discoverSpaces = [
-  {
-    title: "DevOps Automation",
-    desc: "Discuss best practices, share tools, and collaborate on automating deployment.",
-    icon: "📣",
-  },
-  {
-    title: "Health & Wellbeing",
-    desc: "Support mental health, physical fitness, nutrition, lifestyle habits, and balance.",
-    members: 14,
-    icon: "💚",
-  },
-  {
-    title: "Social Care Practice",
-    desc: "Discuss care work, community support, safeguarding, and social care studies.",
-    members: 12,
-    icon: "🧡",
-  },
-  {
-    title: "Data Analytics Bootcamp",
-    desc: "Collaborate on projects using Excel, SQL, and Power BI dashboards.",
-    icon: "📈",
-  },
-];
-
 export default function Dashboard() {
   const router = useRouter();
+
   const [user, setUser] = useState(null);
+  const [spaces, setSpaces] = useState([]);
   const [fade, setFade] = useState(false);
 
-
-  const [mathSpace, setMathSpace] = useState(null);
-
-  useEffect(() => {
-    fetch("/api/getMathSpace")
-      .then((res) => res.json())
-      .then((data) => setMathSpace(data.space));
-  }, []);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
@@ -80,6 +21,13 @@ export default function Dashboard() {
     }
   }, [router]);
 
+  useEffect(() => {
+    fetch("/api/getAllSpaces")
+      .then(res => res.json())
+      .then(data => setSpaces(data.spaces || []));
+  }, []);
+
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -90,30 +38,24 @@ export default function Dashboard() {
     );
   }
 
+  const mySpaces = spaces.filter((space) =>
+    space.members.some(
+      (m) => m.email.trim().toLowerCase() === user.email.trim().toLowerCase()
+    )
+  );
+
+  const discoverSpaces = spaces.filter(
+    (space) =>
+      !space.members.some(
+        (m) => m.email.trim().toLowerCase() === user.email.trim().toLowerCase()
+      )
+  );
+
 
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
   };
-
-  const mySpaces = [
-    ...mySpacesStatic,
-    ...(mathSpace?.members?.some((m) => m.email === user.email)
-      ? [{
-        title: mathSpace.title,
-        desc: mathSpace.desc,
-        members: mathSpace.members.length,
-        icon: mathSpace.icon ?? "📘",
-      }]
-      : [])
-  ];
-
-  const filteredDiscoverSpaces = discoverSpaces.filter(space =>
-    !(mathSpace?.members?.some(m => m.email === user.email) && space.title === mathSpace?.title)
-  );
-
-
-
 
   return (
     <div
@@ -178,53 +120,48 @@ export default function Dashboard() {
 
           {/* My spaces */}
           <section className="mb-10">
-            <h2 className="text-xl font-semibold mb-4">
-              Your Collaborative Spaces
-            </h2>
+            <h2 className="text-xl font-semibold mb-4">Your Collaborative Spaces</h2>
+
+            {mySpaces.length === 0 && (
+              <p className="text-gray-500 mb-4">You haven't joined any spaces yet.</p>
+            )}
+
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               {mySpaces.map((space) => (
                 <div
-                  key={space.title}
+                  key={space._id}
                   className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg">
-                        {space.icon}
+                        {space.icon || "📘"}
                       </div>
                     </div>
+
                     <h3 className="font-semibold mb-1 text-sm md:text-base">
                       {space.title}
                     </h3>
+
                     <p className="text-xs md:text-sm text-gray-600 mb-4">
                       {space.desc}
                     </p>
                   </div>
+
                   <div className="flex items-center justify-between text-xs md:text-sm mt-2">
-                    <span className="text-gray-500">
-                      👥 {space.members} Members
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (space.title === mathSpace?.title) {
-                            setFade(true);
-                            setTimeout(() => {
-                              router.push("/spaces/math");
-                            }, 500);
-                          } else {
-                            // this is a static space - no page yet
-                            alert("This static space has no page yet.");
-                          }
-                        }}
-                        className="px-3 py-1 rounded-md bg-purple-600 text-white text-xs"
-                      >
-                        Open
-                      </button>
-                      <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 text-xs">
-                        Leave
-                      </button>
-                    </div>
+                    <span className="text-gray-500">👥 {space.members.length} Members</span>
+
+                    <button
+                      onClick={() => {
+                        setFade(true);
+                        setTimeout(() => {
+                          router.push(`/spaces/${space._id}`);
+                        }, 400);
+                      }}
+                      className="px-3 py-1 rounded-md bg-purple-600 text-white text-xs"
+                    >
+                      Open
+                    </button>
                   </div>
                 </div>
               ))}
@@ -234,75 +171,52 @@ export default function Dashboard() {
           {/* Discover spaces */}
           <section className="mb-16">
             <h2 className="text-xl font-semibold mb-4">Discover Spaces</h2>
+
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {filteredDiscoverSpaces.map((space) => (
+              {discoverSpaces.map((space) => (
                 <div
-                  key={space.title}
+                  key={space._id}
                   className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between"
                 >
                   <div>
                     <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg mb-2">
-                      {space.icon}
+                      {space.icon || "📘"}
                     </div>
+
                     <h3 className="font-semibold mb-1 text-sm md:text-base">
                       {space.title}
                     </h3>
+
                     <p className="text-xs md:text-sm text-gray-600 mb-4">
                       {space.desc}
-                    </p>
-                  </div>
-                  <button className="mt-auto w-full rounded-md bg-purple-600 text-white text-xs md:text-sm py-2">
-                    Join
-                  </button>
-                </div>
-              ))}
-
-              {mathSpace && !mathSpace.members?.some(m => m.email === user.email) && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
-                  <div>
-                    <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-lg mb-2">
-                      {mathSpace.icon}
-                    </div>
-                    <h3 className="font-semibold mb-1 text-sm md:text-base">
-                      {mathSpace.title}
-                    </h3>
-                    <p className="text-xs md:text-sm text-gray-600 mb-4">
-                      {mathSpace.desc}
                     </p>
                   </div>
 
                   <button
                     onClick={async () => {
-                      const res = await fetch("/api/joinMathSpace", {
+                      const res = await fetch("/api/joinSpace", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
+                          spaceId: space._id,
                           email: user.email,
                           name: user.name,
                         }),
                       });
 
-                      const data = await res.json().catch(() => null);
-
                       if (res.status === 200) {
                         setFade(true);
-
-
-                        setTimeout(() => {
-                          router.push("/spaces/math");
-                        }, 500);
+                        setTimeout(() => router.reload(), 400);
                       } else {
-                        alert("Join Failed");
+                        alert("Join failed.");
                       }
                     }}
                     className="mt-auto w-full rounded-md bg-purple-600 text-white text-xs md:text-sm py-2"
                   >
                     Join
                   </button>
-
                 </div>
-              )}
-
+              ))}
             </div>
           </section>
         </div>
@@ -310,7 +224,10 @@ export default function Dashboard() {
 
 
       {/* Create Space button bottom-right */}
-      <button className="fixed bottom-6 right-6 bg-purple-600 text-white rounded-full px-6 py-3 text-sm font-medium shadow-lg">
+      <button
+        onClick={() => router.push("/create-space")}
+        className="fixed bottom-6 right-6 bg-purple-600 text-white rounded-full px-6 py-3 text-sm font-medium shadow-lg"
+      >
         Create Space
       </button>
     </div>
