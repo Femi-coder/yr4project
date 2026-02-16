@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { spaceId, sender, name, message, timestamp } = req.body;
+        const { spaceId, sender, name, type, content, message, timestamp } = req.body;
 
         const client = await clientPromise;
         const db = client.db("studentcollaboration");
@@ -17,7 +17,8 @@ export default async function handler(req, res) {
             spaceId,
             sender,
             name,
-            message,
+            type: type || "text",
+            content: content || message,
             timestamp,
         });
 

@@ -125,7 +125,8 @@ export default function DynamicSpace() {
             spaceId: id,
             sender: currentUserEmail,
             name: currentUserName,
-            message: chatInput,
+            type: "text",
+            content: chatInput,
             timestamp: Date.now(),
         };
 
@@ -134,6 +135,32 @@ export default function DynamicSpace() {
 
         setChatInput("");
     };
+
+    // Handling File Uploads
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("spaceId", id);
+        formData.append("sender", currentUserEmail);
+        formData.append("name", currentUserName);
+
+        const res = await fetch("/api/uploadFile", {
+            method: "POST",
+            body: formData,
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            setMessages((prev) => [...prev, data.message]);
+        } else {
+            alert(data.error || "Upload failed");
+        }
+    };
+
 
     // SEND ANNOUNCEMENT
     const sendAnnouncement = async () => {
@@ -164,10 +191,10 @@ export default function DynamicSpace() {
     }
 
     return (
-        <div className="flex h-screen bg-gray-100">
+        <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
 
             {/* LEFT SIDEBAR — MEMBERS */}
-            <aside className="w-64 bg-white border-r shadow-sm p-5 overflow-y-auto">
+            <aside className="w-full lg:w-64 bg-white lg:border-r shadow-sm p-5 overflow-y-auto">
                 <h2 className="text-lg font-semibold mb-4 text-gray-700">
                     Members
                 </h2>
@@ -212,7 +239,7 @@ export default function DynamicSpace() {
             </aside>
 
             {/* MAIN CONTENT — DISCUSSION */}
-            <main className="flex-1 flex flex-col p-8 gap-6 overflow-y-auto">
+            <main className="flex-1 flex flex-col p-4 md:p-8 gap-6 overflow-y-auto">
                 <div className="bg-white p-6 rounded-xl shadow">
                     <h1 className="text-2xl font-bold text-purple-700 flex items-center gap-3">
                         <span className="text-3xl">{space.icon}</span>
@@ -232,7 +259,7 @@ export default function DynamicSpace() {
                 </div>
 
                 {/* DISCUSSION BOX */}
-                <div className="bg-white rounded-xl shadow p-6 flex flex-col h-[750px]">
+                <div className="bg-white rounded-xl shadow p-4 md:p-6 flex flex-col h-[70vh] md:h-[75vh]">
                     <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2">
@@ -242,15 +269,45 @@ export default function DynamicSpace() {
                             return (
                                 <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                     <div
-                                        className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isMe
-                                                ? "bg-purple-600 text-white rounded-br-none"
-                                                : "bg-gray-200 text-gray-800 rounded-bl-none"
+                                        className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
+                                            ? "bg-purple-600 text-white rounded-br-none"
+                                            : "bg-gray-200 text-gray-800 rounded-bl-none"
                                             }`}
                                     >
                                         <p className="text-xs font-semibold mb-1">
                                             {isMe ? "You" : msg.name}
                                         </p>
-                                        <p>{msg.message}</p>
+                                        {msg.type === "file" ? (
+                                            <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
+
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
+                                                        📄
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-semibold truncate">
+                                                            {msg.originalName}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            Shared by {msg.name}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <a
+                                                    href={msg.fileUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
+                                                >
+                                                    Download
+                                                </a>
+
+                                            </div>
+                                        ) : (
+
+                                            <p>{msg.content || msg.message}</p>
+                                        )}
                                         <p className="text-[10px] opacity-70 mt-1 text-right">
                                             {formatTime(msg.timestamp)}
                                         </p>
@@ -262,6 +319,21 @@ export default function DynamicSpace() {
 
                     {/* DISCUSSION INPUT */}
                     <div className="mt-4 flex gap-3">
+
+                        <input
+                            type="file"
+                            id="fileUpload"
+                            hidden
+                            onChange={handleFileUpload}
+                        />
+
+                        <button
+                            onClick={() => document.getElementById("fileUpload").click()}
+                            className="bg-purple-300 px-4 py-2 rounded-lg"
+                        >
+                            📎
+                        </button>
+
                         <input
                             className="flex-1 p-3 border rounded-lg"
                             placeholder="Type a message..."
@@ -280,7 +352,7 @@ export default function DynamicSpace() {
             </main>
 
             {/* RIGHT SIDEBAR — ANNOUNCEMENTS */}
-            <aside className="w-80 bg-white border-l shadow-sm p-5 overflow-y-auto">
+            <aside className="w-full lg:w-80 bg-white lg:border-l shadow-sm p-5 overflow-y-auto">
                 <h2 className="text-lg font-semibold mb-4 text-gray-700">
                     Announcements
                 </h2>
