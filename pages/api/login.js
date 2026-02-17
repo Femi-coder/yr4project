@@ -24,7 +24,7 @@ export default async function handler(req, res) {
         if (!user) {
             return res
                 .status(401)
-                .json({ message: "Invalid email or password." });
+                .j2son({ message: "Invalid email or password." });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);

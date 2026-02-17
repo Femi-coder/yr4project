@@ -17,8 +17,32 @@ export default function DynamicSpace() {
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
 
+    const getYouTubeEmbedUrl = (url) => {
+        try {
+            const parsed = new URL(url);
+
+            if (parsed.hostname.includes("youtu.be")) {
+                return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;
+            }
+
+            if (parsed.hostname.includes("youtube.com")) {
+                const id = parsed.searchParams.get("v");
+                if (id) {
+                    return `https://www.youtube.com/embed/${id}`;
+                }
+            }
+
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
+
     const [announcements, setAnnouncements] = useState([]);
     const [annInput, setAnnInput] = useState("");
+
+
 
     // Format time
     const formatTime = (ts) => {
@@ -27,6 +51,7 @@ export default function DynamicSpace() {
             minute: "2-digit",
         });
     };
+
 
     // Load current user
     useEffect(() => {
@@ -118,19 +143,44 @@ export default function DynamicSpace() {
     }, [space, currentUserEmail]);
 
     // SEND DISCUSSION MESSAGE
+    const detectMessageType = (text) => {
+        if (!text.startsWith("http")) return "text";
+
+        const lower = text.toLowerCase();
+
+        if (lower.includes("youtube.com") || lower.includes("youtu.be")) {
+            return "youtube";
+        }
+
+        if (
+            lower.endsWith(".png") ||
+            lower.endsWith(".jpg") ||
+            lower.endsWith(".jpeg") ||
+            lower.endsWith(".gif") ||
+            lower.endsWith(".webp")
+        ) {
+            return "image";
+        }
+
+        return "link";
+    };
+
     const sendMessage = async () => {
         if (!chatInput.trim()) return;
+
+        const type = detectMessageType(chatInput.trim());
 
         const msg = {
             spaceId: id,
             sender: currentUserEmail,
             name: currentUserName,
-            type: "text",
-            content: chatInput,
+            type,
+            content: chatInput.trim(),
             timestamp: Date.now(),
         };
 
         setMessages((prev) => [...prev, msg]);
+
         socketRef.current.emit("space-message", msg);
 
         setChatInput("");
@@ -160,6 +210,8 @@ export default function DynamicSpace() {
             alert(data.error || "Upload failed");
         }
     };
+
+
 
 
     // SEND ANNOUNCEMENT
@@ -278,8 +330,8 @@ export default function DynamicSpace() {
                                             {isMe ? "You" : msg.name}
                                         </p>
                                         {msg.type === "file" ? (
-                                            <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
 
+                                            <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
                                                         📄
@@ -302,12 +354,66 @@ export default function DynamicSpace() {
                                                 >
                                                     Download
                                                 </a>
-
                                             </div>
+
+                                        ) : msg.type === "youtube" ? (
+
+                                            <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
+                                                <iframe
+                                                    src={getYouTubeEmbedUrl(msg.content)}
+                                                    className="w-full aspect-video"
+                                                    allowFullScreen
+                                                ></iframe>
+                                                <div className="bg-white p-2 text-xs text-purple-600 truncate">
+                                                    <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                                                        Open in YouTube →
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                        ) : msg.type === "image" ? (
+
+                                            <div className="w-full max-w-sm">
+                                                <img
+                                                    src={msg.content}
+                                                    alt="Shared content"
+                                                    className="rounded-xl shadow-md"
+                                                />
+                                                <a
+                                                    href={msg.content}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-purple-600 underline mt-1 block"
+                                                >
+                                                    Open image →
+                                                </a>
+                                            </div>
+
+                                        ) : msg.type === "link" ? (
+
+                                            <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-lg">🔗</span>
+                                                    <span className="text-sm font-semibold truncate">
+                                                        {new URL(msg.content).hostname}
+                                                    </span>
+                                                </div>
+                                                <a
+                                                    href={msg.content}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 text-sm underline"
+                                                >
+                                                    Visit Website →
+                                                </a>
+                                            </div>
+
                                         ) : (
 
                                             <p>{msg.content || msg.message}</p>
+
                                         )}
+
                                         <p className="text-[10px] opacity-70 mt-1 text-right">
                                             {formatTime(msg.timestamp)}
                                         </p>
