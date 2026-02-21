@@ -35,7 +35,15 @@ export default async function handler(req, res) {
             course: course || "",
             year: year || "",
             role: "student",
+            
+            // Gamification fields
+            points: 0,
+            reactionsReceived: 0,
+            reactionsGiven: 0,
+
             createdAt: new Date(),
+
+        
         });
 
         return res.status(201).json({ message: "Registration successful!" });

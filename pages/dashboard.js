@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [spaces, setSpaces] = useState([]);
   const [fade, setFade] = useState(false);
+  const [points, setPoints] = useState(0);
 
 
   useEffect(() => {
@@ -27,6 +28,13 @@ export default function Dashboard() {
       .then(data => setSpaces(data.spaces || []));
   }, []);
 
+  useEffect(() => {
+    if (!user?.email) return;
+
+    fetch(`/api/getUserPoints?email=${user.email}`)
+      .then(res => res.json())
+      .then(data => setPoints(data.points || 0));
+  }, [user]);
 
   if (!user) {
     return (
@@ -113,8 +121,7 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
-              <span>850 Prob Points Acquired</span>
-
+              <span> {points} pts </span>
             </div>
           </div>
 

@@ -37,7 +37,33 @@ export default function DynamicSpace() {
             return null;
         }
     };
+    const handleReaction = async (messageId, reactionType) => {
+        try {
+            const res = await fetch("/api/reactToMessage", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    messageId,
+                    reactorEmail: currentUserEmail,
+                    reactionType,
+                }),
+            });
 
+            const data = await res.json();
+
+            if (data.success) {
+                setMessages((prev) =>
+                    prev.map((msg) =>
+                        msg._id === messageId
+                            ? { ...msg, reactions: data.reactions }
+                            : msg
+                    )
+                );
+            }
+        } catch (err) {
+            console.error("Reaction failed:", err);
+        }
+    };
 
     const [announcements, setAnnouncements] = useState([]);
     const [annInput, setAnnInput] = useState("");
@@ -417,6 +443,32 @@ export default function DynamicSpace() {
                                         <p className="text-[10px] opacity-70 mt-1 text-right">
                                             {formatTime(msg.timestamp)}
                                         </p>
+
+                                        {/* REACTIONS*/}
+                                        <div className="flex gap-3 mt-2 text-sm">
+                                            {["like", "clap", "fire"].map((type) => {
+                                                const count =
+                                                    msg.reactions?.filter((r) => r.type === type).length || 0;
+
+                                                const emojiMap = {
+                                                    like: "👍",
+                                                    clap: "👏",
+                                                    fire: "🔥",
+                                                };
+
+                                                return (
+                                                    <button
+                                                        key={type}
+                                                        onClick={() => handleReaction(msg._id, type)}
+                                                        className="flex items-center gap-1 hover:scale-110 transition"
+                                                    >
+                                                        <span>{emojiMap[type]}</span>
+                                                        <span>{count}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
                                     </div>
                                 </div>
                             );
