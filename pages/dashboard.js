@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [spaces, setSpaces] = useState([]);
   const [fade, setFade] = useState(false);
   const [points, setPoints] = useState(0);
+  const [leaderboard, setLeaderboard] = useState([]);
 
 
   useEffect(() => {
@@ -21,6 +22,12 @@ export default function Dashboard() {
       setUser({ email, name });
     }
   }, [router]);
+
+  useEffect(() => {
+    fetch("/api/getLeaderboard")
+      .then(res => res.json())
+      .then(data => setLeaderboard(data.leaderboard || []));
+  }, []);
 
   useEffect(() => {
     fetch("/api/getAllSpaces")
@@ -123,6 +130,39 @@ export default function Dashboard() {
               <span className="text-xl">🏅</span>
               <span> {points} pts </span>
             </div>
+          </div>
+          <h2 className="text-lg font-semibold mb-6 text-purple-700">
+            🏆 Top Contributors
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 mb-10">
+            {leaderboard.map((user, index) => {
+
+              const medal =
+                index === 0 ? "🥇" :
+                  index === 1 ? "🥈" :
+                    index === 2 ? "🥉" :
+                      `#${index + 1}`;
+
+              return (
+                <div
+                  key={index}
+                  className="bg-gray-50 rounded-xl p-5 text-center shadow-md 
+                     transform hover:-translate-y-2 
+                     hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="text-3xl mb-2">{medal}</div>
+
+                  <p className="font-semibold text-gray-800 truncate">
+                    {user.name}
+                  </p>
+
+                  <p className="text-purple-600 font-bold mt-2">
+                    {user.points || 0} pts
+                  </p>
+                </div>
+              );
+            })}
+
           </div>
 
           {/* My spaces */}
