@@ -10,7 +10,7 @@ export default async function handler(req, res) {
             .find({})
             .sort({ points: -1 })
             .limit(5)
-            .project({ name: 1, points: 1 })
+            .project({ name: 1, points: 1, email: 1 })
             .toArray();
 
         return res.status(200).json({ leaderboard: topUsers });

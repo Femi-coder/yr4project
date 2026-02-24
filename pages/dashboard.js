@@ -10,6 +10,9 @@ export default function Dashboard() {
   const [fade, setFade] = useState(false);
   const [points, setPoints] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userBreakdown, setUserBreakdown] = useState(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
 
   useEffect(() => {
@@ -72,6 +75,25 @@ export default function Dashboard() {
     router.push("/login");
   };
 
+  const handleUserClick = async (user) => {
+    setSelectedUser(user);
+    setLoadingBreakdown(true);
+    setUserBreakdown(null);
+
+    try {
+      const res = await fetch(
+        `/api/getUserBreakdown?email=${user.email}`
+      );
+      const data = await res.json();
+
+      setUserBreakdown(data);
+    } catch (err) {
+      console.error("Error fetching breakdown:", err);
+    }
+
+    setLoadingBreakdown(false);
+  };
+
   return (
     <div
       className={`min-h-screen bg-gray-50 flex flex-col transition-opacity duration-500 ${fade ? "opacity-0" : "opacity-100"
@@ -128,7 +150,7 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
-              <span> {points} pts </span>
+              <span> {points} pts achieved </span>
             </div>
           </div>
           <h2 className="text-lg font-semibold mb-6 text-purple-700">
@@ -145,10 +167,11 @@ export default function Dashboard() {
 
               return (
                 <div
-                  key={index}
+                  onClick={() => handleUserClick(user)}
                   className="bg-gray-50 rounded-xl p-5 text-center shadow-md 
-                     transform hover:-translate-y-2 
-                     hover:shadow-xl transition-all duration-300"
+             cursor-pointer
+             transform hover:-translate-y-2 
+             hover:shadow-xl transition-all duration-300"
                 >
                   <div className="text-3xl mb-2">{medal}</div>
 
@@ -277,6 +300,56 @@ export default function Dashboard() {
       >
         Create Space
       </button>
+
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-black"
+            >
+              ✖
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4 text-purple-700">
+              👤 {selectedUser.name}
+            </h2>
+
+            {loadingBreakdown && (
+              <p className="text-gray-500">Loading...</p>
+            )}
+
+            {!loadingBreakdown && userBreakdown && (
+              <>
+                <p className="mb-4 font-medium">
+                  🏅 Total Points:{" "}
+                  <span className="text-purple-600">
+                    {userBreakdown.totalPoints}
+                  </span>
+                </p>
+
+                <div className="space-y-3">
+                  {userBreakdown.breakdown.map((item, index) => (
+                    <div
+                      key={index}
+                      className="bg-gray-50 p-3 rounded-lg flex justify-between"
+                    >
+                      <span className="font-medium">
+                        {item.spaceName}
+                      </span>
+                      <span className="text-purple-600 font-semibold">
+                        {item.points} pts
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
