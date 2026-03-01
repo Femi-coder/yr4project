@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-
+import io from "socket.io-client";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userBreakdown, setUserBreakdown] = useState(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+  const [hasNotification, setHasNotification] = useState(false);
 
 
   useEffect(() => {
@@ -45,6 +46,42 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(data => setPoints(data.points || 0));
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.email || spaces.length === 0) return;
+
+    const SOCKET_URL =
+      process.env.NODE_ENV === "development"
+        ? "http://localhost:4000"
+        : "https://socket-server-cyma.onrender.com";
+
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+
+    // Join ALL spaces user belongs to
+    const mySpaces = spaces.filter((space) =>
+      space.members.some((m) => m.email === user.email)
+    );
+
+    mySpaces.forEach((space) => {
+      socket.emit("join-space", space._id);
+    });
+
+    // Listen for space messages
+    socket.on("space-message", (data) => {
+      if (data.sender !== user.email) {
+        setHasNotification(true);
+      }
+    });
+
+    // Listen for DMs
+    socket.on("receive-message", (data) => {
+      if (data.sender !== user.email) {
+        setHasNotification(true);
+      }
+    });
+
+    return () => socket.disconnect();
+  }, [user, spaces]);
 
   if (!user) {
     return (
@@ -114,9 +151,16 @@ export default function Dashboard() {
             </div>
 
             {/* Icons */}
-            <button className="text-xl" title="Notifications">
+            <div
+              onClick={() => setHasNotification(false)}
+              className="relative cursor-pointer"
+            >
               🔔
-            </button>
+
+              {hasNotification && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+              )}
+            </div>
             <button className="text-xl" title="Rewards">
               🎁
             </button>
