@@ -17,6 +17,13 @@ export default function DynamicSpace() {
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
 
+
+    const quizzes = space?.quizzes || [];
+
+    const [showQuizDropdown, setShowQuizDropdown] = useState(false);
+    const [selectedQuiz, setSelectedQuiz] = useState(null);
+
+
     const getYouTubeEmbedUrl = (url) => {
         try {
             const parsed = new URL(url);
@@ -259,6 +266,177 @@ export default function DynamicSpace() {
 
     // Exit space
     const leave = () => router.push("/dashboard");
+    function CreateQuizForm({ spaceId, userEmail, onCreated }) {
+        const [title, setTitle] = useState("");
+        const [question, setQuestion] = useState("");
+        const [options, setOptions] = useState(["", "", "", ""]);
+        const [answer, setAnswer] = useState(0);
+        const [questions, setQuestions] = useState([]);
+
+        const addQuestion = () => {
+            if (!question.trim()) return;
+
+            setQuestions([
+                ...questions,
+                { question, options, answer: Number(answer) },
+            ]);
+
+            setQuestion("");
+            setOptions(["", "", "", ""]);
+        };
+
+        const saveQuiz = async () => {
+            let finalQuestions = [...questions];
+
+            // If user typed a question but didn’t click Add Question yet
+            if (question.trim()) {
+                finalQuestions.push({
+                    question,
+                    options,
+                    answer: Number(answer),
+                });
+            }
+
+            if (!title) {
+                alert("Please enter a title");
+                return;
+            }
+
+            if (finalQuestions.length === 0) {
+                alert("Add at least one question");
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/createQuiz", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        spaceId,
+                        title,
+                        questions: finalQuestions,
+                        createdBy: userEmail,
+                    }),
+                });
+
+                const data = await res.json();
+                console.log(data);
+
+                if (!res.ok) {
+                    alert(data.error || "Failed to save quiz");
+                    return;
+                }
+
+                alert("Quiz saved!");
+                onCreated();
+            } catch (err) {
+                console.error(err);
+                alert("Server error");
+            }
+        };
+        return (
+            <div className="bg-white rounded-xl shadow p-6 space-y-4 mt-6">
+                <h3 className="text-xl font-semibold">Create Quiz</h3>
+
+                <input
+                    className="w-full border p-2 rounded"
+                    placeholder="Quiz Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                />
+
+                <input
+                    className="w-full border p-2 rounded"
+                    placeholder="Question"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                />
+
+                {options.map((opt, i) => (
+                    <input
+                        key={i}
+                        className="w-full border p-2 rounded"
+                        placeholder={`Option ${i + 1}`}
+                        value={opt}
+                        onChange={(e) => {
+                            const copy = [...options];
+                            copy[i] = e.target.value;
+                            setOptions(copy);
+                        }}
+                    />
+                ))}
+
+                <select
+                    className="border p-2 rounded"
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                >
+                    <option value={0}>Correct: Option 1</option>
+                    <option value={1}>Correct: Option 2</option>
+                    <option value={2}>Correct: Option 3</option>
+                    <option value={3}>Correct: Option 4</option>
+                </select>
+
+                <button
+                    type="button"
+                    onClick={addQuestion}
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                >
+                    Add Question
+                </button>
+                <button
+                    type="button"
+                    onClick={saveQuiz}
+                    className="bg-green-600 text-white px-4 py-2 rounded"
+                >
+                    Save Quiz
+                </button>
+            </div>
+        );
+    }
+
+    function QuizPlayer({ quiz, onBack }) {
+        const [index, setIndex] = useState(0);
+        const [score, setScore] = useState(0);
+
+        const current = quiz.questions[index];
+
+        return (
+            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-2xl shadow-2xl p-10 w-full h-full flex flex-col justify-center">
+                <h2 className="text-xl mb-4">{quiz.title}</h2>
+
+                <p className="mb-4">{current.question}</p>
+
+                {current.options.map((opt, i) => (
+                    <button
+                        key={i}
+                        onClick={() => {
+                            let finalScore = score;
+
+                            if (i === current.answer) {
+                                finalScore = score + 10;
+                                setScore(prev => prev + 10);
+                            }
+
+                            if (index + 1 < quiz.questions.length) {
+                                setIndex(prev => prev + 1);
+                            } else {
+                                alert(`Quiz finished! Score: ${finalScore}`);
+                                onBack();
+                            }
+                        }}
+                        className="block w-full bg-white text-purple-700 px-4 py-2 rounded mb-2"
+                    >
+                        {opt}
+                    </button>
+                ))}
+
+                <button onClick={onBack} className="mt-4 underline">
+                    Back
+                </button>
+            </div>
+        );
+    }
 
     if (!space) {
         return (
@@ -324,7 +502,68 @@ export default function DynamicSpace() {
                         {space.title}
                     </h1>
 
-                    <p className="text-gray-600">{space.desc}</p>
+                    <div className="flex gap-4 mt-6">
+
+                        {/* Discussion Button */}
+                        <button
+                            onClick={() => setSelectedQuiz(null)}
+                            className="px-5 py-2 rounded-lg bg-purple-600 text-white"
+                        >
+                            Discussion
+                        </button>
+
+                        {/* Quiz Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowQuizDropdown(!showQuizDropdown)}
+                                className="px-5 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+                            >
+                                Quiz ▼
+                            </button>
+
+                            {showQuizDropdown && (
+                                <div className="absolute left-0 mt-2 w-72 bg-white shadow-xl rounded-xl z-50 p-3 space-y-2">
+
+                                    {quizzes.length === 0 && (
+                                        <p className="text-sm text-gray-500">No quizzes yet</p>
+                                    )}
+
+                                    {quizzes.map((quiz) => (
+                                        <div
+                                            key={quiz._id}
+                                            className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
+                                            onClick={() => {
+                                                setSelectedQuiz(quiz);
+                                                setShowQuizDropdown(false);
+                                            }}
+                                        >
+                                            <p className="font-medium text-sm">{quiz.title}</p>
+                                            <p className="text-xs text-gray-500">
+                                                Created by {quiz.createdBy}
+                                            </p>
+                                        </div>
+                                    ))}
+
+                                    <div className="border-t pt-2">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedQuiz("create");
+                                                setShowQuizDropdown(false);
+                                            }}
+                                            className="w-full text-left text-green-600 text-sm font-medium"
+                                        >
+                                            + Create Quiz
+                                        </button>
+                                    </div>
+
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                    <p className="text-gray-600 mt-4">{space.desc}</p>
+
                     <p className="text-sm text-purple-700 flex justify-between mt-2">
                         👥 {space.members.length} Members
                         <button
@@ -337,176 +576,194 @@ export default function DynamicSpace() {
                 </div>
 
                 {/* DISCUSSION BOX */}
-                <div className="bg-white rounded-xl shadow p-4 md:p-6 flex flex-col h-[70vh] md:h-[75vh]">
-                    <h3 className="text-lg font-semibold mb-3">Discussion</h3>
+                {selectedQuiz && selectedQuiz !== "create" && (
+                    <QuizPlayer
+                        quiz={selectedQuiz}
+                        onBack={() => setSelectedQuiz(null)}
+                    />
+                )}
 
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                        {messages.map((msg, i) => {
-                            const isMe = msg.sender === currentUserEmail;
+                {selectedQuiz === "create" && (
+                    <CreateQuizForm
+                        spaceId={space._id.toString()}
+                        userEmail={currentUserEmail}
+                        onCreated={() => router.reload()}
+                    />
+                )}
 
-                            return (
-                                <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                                    <div
-                                        className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
-                                            ? "bg-purple-600 text-white rounded-br-none"
-                                            : "bg-gray-200 text-gray-800 rounded-bl-none"
-                                            }`}
-                                    >
-                                        <p className="text-xs font-semibold mb-1">
-                                            {isMe ? "You" : msg.name}
-                                        </p>
-                                        {msg.type === "file" ? (
+                {!selectedQuiz && (
+                    <div className="bg-white rounded-xl shadow p-4 md:p-6 flex flex-col h-[70vh] md:h-[75vh]">
+                        <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
-                                            <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
-                                                        📄
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                            {messages.map((msg, i) => {
+                                const isMe = msg.sender === currentUserEmail;
+
+
+                                return (
+                                    <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                        <div
+                                            className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
+                                                ? "bg-purple-600 text-white rounded-br-none"
+                                                : "bg-gray-200 text-gray-800 rounded-bl-none"
+                                                }`}
+                                        >
+                                            <p className="text-xs font-semibold mb-1">
+                                                {isMe ? "You" : msg.name}
+                                            </p>
+                                            {msg.type === "file" ? (
+
+                                                <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
+                                                            📄
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold truncate">
+                                                                {msg.originalName}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                Shared by {msg.name}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-sm font-semibold truncate">
-                                                            {msg.originalName}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">
-                                                            Shared by {msg.name}
-                                                        </p>
-                                                    </div>
-                                                </div>
 
-                                                <a
-                                                    href={msg.fileUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
-                                                >
-                                                    Download
-                                                </a>
-                                            </div>
-
-                                        ) : msg.type === "youtube" ? (
-
-                                            <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
-                                                <iframe
-                                                    src={getYouTubeEmbedUrl(msg.content)}
-                                                    className="w-full aspect-video"
-                                                    allowFullScreen
-                                                ></iframe>
-                                                <div className="bg-white p-2 text-xs text-purple-600 truncate">
-                                                    <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                                                        Open in YouTube →
+                                                    <a
+                                                        href={msg.fileUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
+                                                    >
+                                                        Download
                                                     </a>
                                                 </div>
-                                            </div>
 
-                                        ) : msg.type === "image" ? (
+                                            ) : msg.type === "youtube" ? (
 
-                                            <div className="w-full max-w-sm">
-                                                <img
-                                                    src={msg.content}
-                                                    alt="Shared content"
-                                                    className="rounded-xl shadow-md"
-                                                />
-                                                <a
-                                                    href={msg.content}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs text-purple-600 underline mt-1 block"
-                                                >
-                                                    Open image →
-                                                </a>
-                                            </div>
-
-                                        ) : msg.type === "link" ? (
-
-                                            <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-lg">🔗</span>
-                                                    <span className="text-sm font-semibold truncate">
-                                                        {new URL(msg.content).hostname}
-                                                    </span>
+                                                <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
+                                                    <iframe
+                                                        src={getYouTubeEmbedUrl(msg.content)}
+                                                        className="w-full aspect-video"
+                                                        allowFullScreen
+                                                    ></iframe>
+                                                    <div className="bg-white p-2 text-xs text-purple-600 truncate">
+                                                        <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                                                            Open in YouTube →
+                                                        </a>
+                                                    </div>
                                                 </div>
-                                                <a
-                                                    href={msg.content}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-purple-600 text-sm underline"
-                                                >
-                                                    Visit Website →
-                                                </a>
+
+                                            ) : msg.type === "image" ? (
+
+                                                <div className="w-full max-w-sm">
+                                                    <img
+                                                        src={msg.content}
+                                                        alt="Shared content"
+                                                        className="rounded-xl shadow-md"
+                                                    />
+                                                    <a
+                                                        href={msg.content}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-purple-600 underline mt-1 block"
+                                                    >
+                                                        Open image →
+                                                    </a>
+                                                </div>
+
+                                            ) : msg.type === "link" ? (
+
+                                                <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-lg">🔗</span>
+                                                        <span className="text-sm font-semibold truncate">
+                                                            {new URL(msg.content).hostname}
+                                                        </span>
+                                                    </div>
+                                                    <a
+                                                        href={msg.content}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-purple-600 text-sm underline"
+                                                    >
+                                                        Visit Website →
+                                                    </a>
+                                                </div>
+
+                                            ) : (
+
+                                                <p>{msg.content || msg.message}</p>
+
+                                            )}
+
+                                            <p className="text-[10px] opacity-70 mt-1 text-right">
+                                                {formatTime(msg.timestamp)}
+                                            </p>
+
+                                            {/* REACTIONS*/}
+                                            <div className="flex gap-3 mt-2 text-sm">
+                                                {["like", "clap", "fire"].map((type) => {
+                                                    const count =
+                                                        msg.reactions?.filter((r) => r.type === type).length || 0;
+
+                                                    const emojiMap = {
+                                                        like: "👍",
+                                                        clap: "👏",
+                                                        fire: "🔥",
+                                                    };
+
+                                                    return (
+                                                        <button
+                                                            key={type}
+                                                            onClick={() => handleReaction(msg._id, type)}
+                                                            className="flex items-center gap-1 hover:scale-110 transition"
+                                                        >
+                                                            <span>{emojiMap[type]}</span>
+                                                            <span>{count}</span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
 
-                                        ) : (
-
-                                            <p>{msg.content || msg.message}</p>
-
-                                        )}
-
-                                        <p className="text-[10px] opacity-70 mt-1 text-right">
-                                            {formatTime(msg.timestamp)}
-                                        </p>
-
-                                        {/* REACTIONS*/}
-                                        <div className="flex gap-3 mt-2 text-sm">
-                                            {["like", "clap", "fire"].map((type) => {
-                                                const count =
-                                                    msg.reactions?.filter((r) => r.type === type).length || 0;
-
-                                                const emojiMap = {
-                                                    like: "👍",
-                                                    clap: "👏",
-                                                    fire: "🔥",
-                                                };
-
-                                                return (
-                                                    <button
-                                                        key={type}
-                                                        onClick={() => handleReaction(msg._id, type)}
-                                                        className="flex items-center gap-1 hover:scale-110 transition"
-                                                    >
-                                                        <span>{emojiMap[type]}</span>
-                                                        <span>{count}</span>
-                                                    </button>
-                                                );
-                                            })}
                                         </div>
-
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+
+                        {/* DISCUSSION INPUT */}
+                        <div className="mt-4 flex gap-3">
+
+                            <input
+                                type="file"
+                                id="fileUpload"
+                                hidden
+                                onChange={handleFileUpload}
+                            />
+
+                            <button
+                                onClick={() => document.getElementById("fileUpload").click()}
+                                className="bg-purple-300 px-4 py-2 rounded-lg"
+                            >
+                                📎
+                            </button>
+
+                            <input
+                                className="flex-1 p-3 border rounded-lg"
+                                placeholder="Type a message..."
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                            />
+                            <button
+                                onClick={sendMessage}
+                                className="bg-purple-600 text-white px-6 py-2 rounded-lg"
+                            >
+                                Send
+                            </button>
+                        </div>
                     </div>
-
-                    {/* DISCUSSION INPUT */}
-                    <div className="mt-4 flex gap-3">
-
-                        <input
-                            type="file"
-                            id="fileUpload"
-                            hidden
-                            onChange={handleFileUpload}
-                        />
-
-                        <button
-                            onClick={() => document.getElementById("fileUpload").click()}
-                            className="bg-purple-300 px-4 py-2 rounded-lg"
-                        >
-                            📎
-                        </button>
-
-                        <input
-                            className="flex-1 p-3 border rounded-lg"
-                            placeholder="Type a message..."
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                        />
-                        <button
-                            onClick={sendMessage}
-                            className="bg-purple-600 text-white px-6 py-2 rounded-lg"
-                        >
-                            Send
-                        </button>
-                    </div>
-                </div>
+                )}
             </main>
 
             {/* RIGHT SIDEBAR — ANNOUNCEMENTS */}
