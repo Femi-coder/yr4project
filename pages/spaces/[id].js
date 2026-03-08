@@ -22,6 +22,7 @@ export default function DynamicSpace() {
 
     const [showQuizDropdown, setShowQuizDropdown] = useState(false);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
+    const [completedQuizzes, setCompletedQuizzes] = useState([])
 
 
     const getYouTubeEmbedUrl = (url) => {
@@ -91,6 +92,19 @@ export default function DynamicSpace() {
         setCurrentUserEmail(localStorage.getItem("userEmail"));
         setCurrentUserName(localStorage.getItem("userName"));
     }, []);
+
+    //Load completed quizzes
+    useEffect(() => {
+
+        if (!currentUserEmail) return;
+
+        fetch(`/api/getQuizAttempts?email=${currentUserEmail}`)
+            .then(res => res.json())
+            .then(data => {
+                setCompletedQuizzes(data.quizIds || []);
+            });
+
+    }, [currentUserEmail]);
 
     useEffect(() => {
         if (!router.isReady || !id) return;
@@ -398,6 +412,8 @@ export default function DynamicSpace() {
     function QuizPlayer({ quiz, onBack }) {
         const [index, setIndex] = useState(0);
         const [score, setScore] = useState(0);
+        const [selected, setSelected] = useState(null);
+        const [showResult, setShowResult] = useState(false);
 
         const current = quiz.questions[index];
 
@@ -405,31 +421,78 @@ export default function DynamicSpace() {
             <div className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-2xl shadow-2xl p-10 w-full h-full flex flex-col justify-center">
                 <h2 className="text-xl mb-4">{quiz.title}</h2>
 
+                <p className="text-sm text-purple-200 mb-5">
+                    Question {index + 1} of {quiz.questions.length}
+                </p>
                 <p className="mb-4">{current.question}</p>
 
-                {current.options.map((opt, i) => (
-                    <button
-                        key={i}
-                        onClick={() => {
-                            let finalScore = score;
+                {current.options.map((opt, i) => {
 
-                            if (i === current.answer) {
-                                finalScore = score + 10;
-                                setScore(prev => prev + 10);
-                            }
+                    let buttonColor = "bg-white text-purple-700";
 
-                            if (index + 1 < quiz.questions.length) {
-                                setIndex(prev => prev + 1);
-                            } else {
-                                alert(`Quiz finished! Score: ${finalScore}`);
-                                onBack();
-                            }
-                        }}
-                        className="block w-full bg-white text-purple-700 px-4 py-2 rounded mb-2"
-                    >
-                        {opt}
-                    </button>
-                ))}
+                    if (showResult) {
+                        if (i === current.answer) {
+                            buttonColor = "bg-green-500 text-white";
+                        } else if (i === selected) {
+                            buttonColor = "bg-red-500 text-white";
+                        }
+                    }
+
+                    return (
+                        <button
+                            key={i}
+                            disabled={showResult}
+                            onClick={() => {
+
+                                setSelected(i);
+                                setShowResult(true);
+
+                                let finalScore = score;
+
+                                if (i === current.answer) {
+                                    finalScore = score + 10;
+                                    setScore(prev => prev + 10);
+                                }
+
+                                setTimeout(async () => {
+
+                                    setSelected(null);
+                                    setShowResult(false);
+
+                                    if (index + 1 < quiz.questions.length) {
+                                        setIndex(prev => prev + 1);
+                                    } else {
+                                        const res = await fetch("/api/addQuizPoints", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                                email: localStorage.getItem("userEmail"),
+                                                points: finalScore,
+                                                quizId: quiz._id,
+                                                spaceId: quiz.spaceId
+                                                                                            })
+                                        });
+
+                                        const data = await res.json();
+
+                                        if (!res.ok) {
+                                            alert(data.error);
+                                            onBack();
+                                            return;
+                                        }
+                                        alert(`Quiz finished! Score: ${finalScore}`);
+                                        onBack();
+                                    }
+
+                                }, 1500);
+
+                            }}
+                            className={`block w-full px-4 py-2 rounded mb-2 transition ${buttonColor}`}
+                        >
+                            {opt}
+                        </button>
+                    );
+                })}
 
                 <button onClick={onBack} className="mt-4 underline">
                     Back
@@ -533,11 +596,19 @@ export default function DynamicSpace() {
                                             key={quiz._id}
                                             className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
                                             onClick={() => {
+
+                                                if (completedQuizzes.includes(quiz._id)) {
+                                                    alert("You already completed this quiz");
+                                                    return;
+                                                }
+
                                                 setSelectedQuiz(quiz);
                                                 setShowQuizDropdown(false);
                                             }}
                                         >
-                                            <p className="font-medium text-sm">{quiz.title}</p>
+                                            <p className="font-medium text-sm">{quiz.title}
+                                            {completedQuizzes.includes(quiz._id) && " ✓"} 
+                                            </p>
                                             <p className="text-xs text-gray-500">
                                                 Created by {quiz.createdBy}
                                             </p>

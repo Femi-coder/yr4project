@@ -48,6 +48,16 @@ export default function Dashboard() {
   }, [user]);
 
   useEffect(() => {
+    if (!user?.email) return;
+
+    fetch(`/api/getUserBreakdown?email=${user.email}`)
+      .then(res => res.json())
+      .then(data => setUserBreakdown(data))
+      .catch(err => console.error("Breakdown error:", err));
+
+  }, [user]);
+
+  useEffect(() => {
     if (!user?.email || spaces.length === 0) return;
 
     const SOCKET_URL =
@@ -194,8 +204,25 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
-              <span> {points} pts achieved </span>
+              <span>{points} pts achieved</span>
             </div>
+
+            {userBreakdown?.breakdown?.length > 0 && (
+              <div className="mt-2 text-purple-500 text-sm">
+
+                <p className="font-medium mb-1">
+                Points Breakdown
+                </p>
+
+                {userBreakdown.breakdown.map((item, index) => (
+                  <div key={index}>
+                    {item.spaceName} {item.points} pts
+                  </div>
+                ))}
+
+              </div>
+            )}
+
           </div>
           <h2 className="text-lg font-semibold mb-6 text-purple-700">
             🏆 Top Contributors
@@ -367,14 +394,14 @@ export default function Dashboard() {
             {!loadingBreakdown && userBreakdown && (
               <>
                 <p className="mb-4 font-medium">
-                  🏅 Total Points:{" "}
+                  🏅 Total Points:
                   <span className="text-purple-600">
                     {userBreakdown.totalPoints}
                   </span>
                 </p>
 
                 <div className="space-y-3">
-                  {userBreakdown.breakdown.map((item, index) => (
+                  {userBreakdown?.breakdown?.map((item, index) => (
                     <div
                       key={index}
                       className="bg-gray-50 p-3 rounded-lg flex justify-between"
@@ -382,6 +409,7 @@ export default function Dashboard() {
                       <span className="font-medium">
                         {item.spaceName}
                       </span>
+
                       <span className="text-purple-600 font-semibold">
                         {item.points} pts
                       </span>

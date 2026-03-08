@@ -21,6 +21,7 @@ export default async function handler(req, res) {
       _id: new ObjectId(),
       title,
       createdBy,
+      spaceId,
       createdAt: Date.now(),
       questions,
     };

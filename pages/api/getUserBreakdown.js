@@ -46,6 +46,33 @@ export default async function handler(req, res) {
             }
         }
 
+        const quizAttempts = await db
+            .collection("quizAttempts")
+            .find({ userEmail: email })
+            .toArray();
+
+        for (const attempt of quizAttempts) {
+
+            const quizId = attempt.quizId;
+
+            const space = await db.collection("spaces").findOne({
+                "quizzes._id": new ObjectId(quizId)
+            });
+
+            if (!space) continue;
+
+            const spaceId = space._id.toString();
+
+
+            if (!spaceBreakdown[spaceId]) {
+                spaceBreakdown[spaceId] = 0;
+            }
+
+            spaceBreakdown[spaceId] += attempt.score;
+
+            totalPoints += attempt.score;
+        }
+
         const spaceIds = Object.keys(spaceBreakdown);
 
         const spaces = await db
@@ -67,8 +94,10 @@ export default async function handler(req, res) {
             points: spaceBreakdown[spaceId],
         }));
 
+        const user = await db.collection("users").findOne({ email });
+
         return res.status(200).json({
-            totalPoints,
+            totalPoints: user.points || 0,
             breakdown: breakdownArray,
         });
 
