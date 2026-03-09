@@ -219,6 +219,7 @@ export default function DynamicSpace() {
 
         const msg = {
             spaceId: id,
+            spaceName: space.title,
             sender: currentUserEmail,
             name: currentUserName,
             type,

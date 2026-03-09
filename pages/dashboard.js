@@ -14,7 +14,8 @@ export default function Dashboard() {
   const [userBreakdown, setUserBreakdown] = useState(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   const [hasNotification, setHasNotification] = useState(false);
-
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
@@ -80,6 +81,16 @@ export default function Dashboard() {
     socket.on("space-message", (data) => {
       if (data.sender !== user.email) {
         setHasNotification(true);
+
+        setNotifications(prev => [
+          {
+            spaceId: data.spaceId,
+            spaceName: data.spaceName || "Space",
+            message: "New Message",
+            timestamp: Date.now()
+          },
+          ...prev
+        ]);
       }
     });
 
@@ -162,10 +173,36 @@ export default function Dashboard() {
 
             {/* Icons */}
             <div
-              onClick={() => setHasNotification(false)}
-              className="relative cursor-pointer"
+              onClick={() => {
+                setHasNotification(false);
+                setShowNotifications(!showNotifications);
+              }}
+              className="relative cursor-pointer z-[100]"
             >
               🔔
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-white shadow-xl rounded-xl p-3 z-[110]">
+                  <p className="font-semibold mb-2 text-gray-700">
+                    Notifications
+                  </p>
+
+                  {notifications.length === 0 && (
+                    <p className="text-sm text-gray-500">No notifications</p>
+                  )}
+
+                  {notifications.map((n, index) => (
+                    <div
+                      key={index}
+                      onClick={() => router.push(`/spaces/${n.spaceId}`)}
+                      className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer text-sm"
+                    >
+                      <p className="font-medium text-gray-800">{n.spaceName}</p>
+                      <p className="text-gray-700 text-xs">{n.message}</p>
+                    </div>
+                  ))}
+
+                </div>
+              )}
 
               {hasNotification && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
@@ -211,7 +248,7 @@ export default function Dashboard() {
               <div className="mt-2 text-purple-500 text-sm">
 
                 <p className="font-medium mb-1">
-                Points Breakdown
+                  Points Breakdown
                 </p>
 
                 {userBreakdown.breakdown.map((item, index) => (
@@ -374,7 +411,7 @@ export default function Dashboard() {
 
       {selectedUser && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+          <div className="bg-black rounded-xl shadow-2xl w-full max-w-md p-6 relative">
 
             <button
               onClick={() => setSelectedUser(null)}
