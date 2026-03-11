@@ -86,7 +86,7 @@ export default function Dashboard() {
           {
             spaceId: data.spaceId,
             spaceName: data.spaceName || "Space",
-            message: "New Message",
+            message: `${data.name}: sent a message`,
             timestamp: Date.now()
           },
           ...prev
@@ -152,6 +152,21 @@ export default function Dashboard() {
     setLoadingBreakdown(false);
   };
 
+  const formatTimeAgo = (timestamp) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+    if (seconds < 60) return "Just now";
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hr ago`;
+
+    const days = Math.floor(hours / 24);
+    return `${days} day ago`;
+  };
+
   return (
     <div
       className={`min-h-screen bg-gray-50 flex flex-col transition-opacity duration-500 ${fade ? "opacity-0" : "opacity-100"
@@ -198,6 +213,9 @@ export default function Dashboard() {
                     >
                       <p className="font-medium text-gray-800">{n.spaceName}</p>
                       <p className="text-gray-700 text-xs">{n.message}</p>
+                      <p className="text-gray-400 text-[10px] mt-1">
+                        {formatTimeAgo(n.timestamp)}
+                      </p>
                     </div>
                   ))}
 
@@ -411,7 +429,7 @@ export default function Dashboard() {
 
       {selectedUser && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-black rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
 
             <button
               onClick={() => setSelectedUser(null)}
