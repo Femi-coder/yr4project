@@ -24,6 +24,10 @@ export default function DynamicSpace() {
     const [selectedQuiz, setSelectedQuiz] = useState(null);
     const [completedQuizzes, setCompletedQuizzes] = useState([])
 
+    const [recording, setRecording] = useState(false);
+    const [mediaRecorder, setMediaRecorder] = useState(null);
+    const [audioChunks, setAudioChunks] = useState([]);
+
 
     const getYouTubeEmbedUrl = (url) => {
         try {
@@ -234,6 +238,24 @@ export default function DynamicSpace() {
         setChatInput("");
     };
 
+    const sendAudioMessage = (audioUrl) => {
+
+        const msg = {
+            spaceId: id,
+            spaceName: space.title,
+            sender: currentUserEmail,
+            name: currentUserName,
+            type: "audio",
+            content: audioUrl,
+            timestamp: Date.now(),
+        };
+
+        setMessages(prev => [...prev, msg]);
+
+        socketRef.current.emit("space-message", msg);
+    };
+
+
     // Handling File Uploads
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -258,6 +280,66 @@ export default function DynamicSpace() {
             alert(data.error || "Upload failed");
         }
     };
+
+    const startRecording = async () => {
+
+        console.log("Recording started");
+        try {
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const recorder = new MediaRecorder(stream);
+
+            const chunks = [];
+
+            recorder.ondataavailable = (event) => {
+                chunks.push(event.data);
+            };
+
+            recorder.onstop = async () => {
+
+                const audioBlob = new Blob(chunks, { type: "audio/webm" });
+
+                const formData = new FormData();
+
+                formData.append("audio", audioBlob, "recording.webm");
+
+                const upload = await fetch("/api/uploadAudio", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await upload.json();
+
+                console.log(data);
+
+                if (data.audioUrl) {
+                    sendAudioMessage(data.audioUrl);
+                }
+
+            };
+
+            recorder.start();
+
+            setMediaRecorder(recorder);
+            setRecording(true);
+            setAudioChunks(chunks);
+
+        } catch (err) {
+            console.error("Recording error:", err);
+        }
+    };
+
+    const stopRecording = () => {
+
+        if (mediaRecorder) {
+            mediaRecorder.stop();
+        }
+
+        setRecording(false);
+    };
+
+
 
 
 
@@ -471,7 +553,7 @@ export default function DynamicSpace() {
                                                 points: finalScore,
                                                 quizId: quiz._id,
                                                 spaceId: quiz.spaceId
-                                                                                            })
+                                            })
                                         });
 
                                         const data = await res.json();
@@ -608,7 +690,7 @@ export default function DynamicSpace() {
                                             }}
                                         >
                                             <p className="font-medium text-sm">{quiz.title}
-                                            {completedQuizzes.includes(quiz._id) && " ✓"} 
+                                                {completedQuizzes.includes(quiz._id) && " ✓"}
                                             </p>
                                             <p className="text-xs text-gray-500">
                                                 Created by {quiz.createdBy}
@@ -762,6 +844,13 @@ export default function DynamicSpace() {
                                                     </a>
                                                 </div>
 
+                                            ) : msg.type === "audio" ? (
+
+                                                <audio controls className="mt-2">
+                                                    <source src={msg.content} type="audio/webm" />
+                                                    Your browser does not support the audio element.
+                                                </audio>
+
                                             ) : (
 
                                                 <p>{msg.content || msg.message}</p>
@@ -815,10 +904,19 @@ export default function DynamicSpace() {
 
                             <button
                                 onClick={() => document.getElementById("fileUpload").click()}
-                                className="bg-purple-300 px-4 py-2 rounded-lg"
+                                className="bg-purple-600 px-4 text-white py-2 rounded-lg"
                             >
-                                📎
+                                📎Upload File
                             </button>
+
+                            <button
+                                onClick={recording ? stopRecording : startRecording}
+                                className={`px-3 py-2 rounded-lg text-white ${recording ? "bg-red-600" : "bg-purple-600"
+                                    }`}
+                            >
+                                {recording ? "⏹ Stop Recording" : "🎤 Record"}
+                            </button>
+
 
                             <input
                                 className="flex-1 p-3 border rounded-lg"
@@ -835,11 +933,12 @@ export default function DynamicSpace() {
                             </button>
                         </div>
                     </div>
-                )}
-            </main>
+                )
+                }
+            </main >
 
             {/* RIGHT SIDEBAR — ANNOUNCEMENTS */}
-            <aside className="w-full lg:w-80 bg-white lg:border-l shadow-sm p-5 overflow-y-auto">
+            < aside className="w-full lg:w-80 bg-white lg:border-l shadow-sm p-5 overflow-y-auto" >
                 <h2 className="text-lg font-semibold mb-4 text-gray-700">
                     Announcements
                 </h2>
@@ -873,7 +972,7 @@ export default function DynamicSpace() {
                         </div>
                     ))}
                 </div>
-            </aside>
-        </div>
+            </aside >
+        </div >
     );
 }
