@@ -563,6 +563,22 @@ export default function DynamicSpace() {
                                             onBack();
                                             return;
                                         }
+
+                                        await fetch("/api/saveAnnouncement", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                                spaceId: id,
+                                                sender: currentUserEmail,
+                                                senderName: currentUserName,
+                                                text: `🏆 ${currentUserName} scored ${finalScore} pts in "${quiz.title}"`,
+                                                level: "quiz",
+                                                timestamp: Date.now()
+                                            })
+                                        });
+                                        router.reload();
+
+
                                         alert(`Quiz finished! Score: ${finalScore}`);
                                         onBack();
                                     }
