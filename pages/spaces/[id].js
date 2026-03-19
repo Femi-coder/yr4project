@@ -28,6 +28,12 @@ export default function DynamicSpace() {
     const [mediaRecorder, setMediaRecorder] = useState(null);
     const [audioChunks, setAudioChunks] = useState([]);
 
+    const [listening, setListening] = useState(false);
+    const recognitionRef = useRef(null);
+
+    const bottomRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+
 
     const getYouTubeEmbedUrl = (url) => {
         try {
@@ -89,6 +95,12 @@ export default function DynamicSpace() {
             minute: "2-digit",
         });
     };
+
+    useEffect(() => {
+        if (messages.length > 0) {
+            bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        }
+    }, [messages.length]);
 
 
     // Load current user
@@ -219,19 +231,24 @@ export default function DynamicSpace() {
     const sendMessage = async () => {
         if (!chatInput.trim()) return;
 
-        const type = detectMessageType(chatInput.trim());
-
         const msg = {
             spaceId: id,
             spaceName: space.title,
             sender: currentUserEmail,
             name: currentUserName,
-            type,
+            type: detectMessageType(chatInput.trim()),
             content: chatInput.trim(),
             timestamp: Date.now(),
         };
 
         setMessages((prev) => [...prev, msg]);
+
+        await fetch("/api/saveSpaceMessage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(msg),
+        });
+
 
         socketRef.current.emit("space-message", msg);
 
@@ -339,9 +356,50 @@ export default function DynamicSpace() {
         setRecording(false);
     };
 
+    const startSpeechToText = () => {
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
 
+        if (!SpeechRecognition) {
+            alert("Speech Recognition not supported in this browser");
+            return;
+        }
 
+        const recognition = new SpeechRecognition();
 
+        recognition.lang = "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            let transcript = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+
+            setChatInput(transcript);
+        };
+
+        recognition.onend = () => {
+            setListening(false);
+        };
+
+        recognition.onerror = (e) => {
+            console.error("Speech error:", e);
+            setListening(false);
+        };
+
+        recognition.start();
+
+        recognitionRef.current = recognition;
+        setListening(true);
+    };
+
+    const stopSpeechToText = () => {
+        recognitionRef.current?.stop();
+        setListening(false);
+    };
 
 
     // SEND ANNOUNCEMENT
@@ -765,7 +823,7 @@ export default function DynamicSpace() {
                     <div className="bg-white rounded-xl shadow p-4 md:p-6 flex flex-col h-[70vh] md:h-[75vh]">
                         <h3 className="text-lg font-semibold mb-3">Discussion</h3>
 
-                        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-2">
                             {messages.map((msg, i) => {
                                 const isMe = msg.sender === currentUserEmail;
 
@@ -900,6 +958,7 @@ export default function DynamicSpace() {
                                                         </button>
                                                     );
                                                 })}
+                                                 <div ref={bottomRef}></div>
                                             </div>
 
                                         </div>
@@ -931,6 +990,14 @@ export default function DynamicSpace() {
                                     }`}
                             >
                                 {recording ? "⏹ Stop Recording" : "🎤 Record"}
+                            </button>
+
+                            <button
+                                onClick={listening ? stopSpeechToText : startSpeechToText}
+                                className={`px-3 py-2 rounded-lg text-white ${listening ? "bg-red-500" : "bg-blue-600"
+                                    }`}
+                            >
+                                {listening ? "🛑 Stop Speech" : "🗣️ Speak"}
                             </button>
 
 
