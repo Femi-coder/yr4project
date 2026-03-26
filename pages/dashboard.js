@@ -16,6 +16,9 @@ export default function Dashboard() {
   const [hasNotification, setHasNotification] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showRewards, setShowRewards] = useState(false);
+  const [rewards, setRewards] = useState([]);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
@@ -47,6 +50,14 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(data => setPoints(data.points || 0));
   }, [user]);
+
+  useEffect(() => {
+    if (!showRewards) return;
+
+    fetch("/api/getRewards")
+      .then(res => res.json())
+      .then(data => setRewards(data.rewards || []));
+  }, [showRewards]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -114,13 +125,18 @@ export default function Dashboard() {
     );
   }
 
-  const mySpaces = spaces.filter((space) =>
+  const filteredSpaces = spaces.filter((space) =>
+    space.title.toLowerCase().includes(search.toLowerCase()) ||
+    space.desc.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const mySpaces = filteredSpaces.filter((space) =>
     space.members.some(
       (m) => m.email.trim().toLowerCase() === user.email.trim().toLowerCase()
     )
   );
 
-  const discoverSpaces = spaces.filter(
+  const discoverSpaces = filteredSpaces.filter(
     (space) =>
       !space.members.some(
         (m) => m.email.trim().toLowerCase() === user.email.trim().toLowerCase()
@@ -182,7 +198,7 @@ export default function Dashboard() {
             <div className="hidden sm:flex items-center bg-purple-500/70 rounded-full px-3 py-1 w-64">
               <input
                 className="bg-transparent outline-none text-sm placeholder-purple-100 flex-1"
-                placeholder="Search spaces..."
+                placeholder="Search spaces..." value={search} onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
@@ -226,7 +242,11 @@ export default function Dashboard() {
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
               )}
             </div>
-            <button className="text-xl" title="Rewards">
+            <button
+              onClick={() => router.push("/rewards")}
+              className="text-xl"
+              title="Rewards"
+            >
               🎁
             </button>
 

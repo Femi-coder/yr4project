@@ -17,6 +17,20 @@ export default async function handler(req, res) {
     const client = await clientPromise;
     const db = client.db();
 
+    const space = await db.collection("spaces").findOne({
+      _id: new ObjectId(spaceId),
+    });
+
+    if (!space) {
+      return res.status(404).json({ error: "Space not found" });
+    }
+
+    if (space.leader !== createdBy) {
+      return res.status(403).json({
+        error: "Only the current leader can create quizzes",
+      });
+    }
+
     const newQuiz = {
       _id: new ObjectId(),
       title,

@@ -13,6 +13,20 @@ export default async function handler(req, res) {
         const client = await clientPromise;
         const db = client.db("studentcollaboration");
 
+        const space = await db.collection("spaces").findOne({
+            _id: new ObjectId(spaceId),
+        });
+
+        if (!space) {
+            return res.status(404).json({ error: "Space not found" });
+        }
+
+        if (space.leader === email) {
+            return res.status(403).json({
+                error: "Leader cannot take quiz during their leadership period",
+            });
+        }
+
         const existingAttempt = await db.collection("quizAttempts").findOne({
             quizId,
             userEmail: email

@@ -33,6 +33,10 @@ export default function DynamicSpace() {
 
     const bottomRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const [announcements, setAnnouncements] = useState([]);
+    const [annInput, setAnnInput] = useState("");
+
+    const isLeader = space?.leader === currentUserEmail;
 
 
     const getYouTubeEmbedUrl = (url) => {
@@ -83,8 +87,7 @@ export default function DynamicSpace() {
         }
     };
 
-    const [announcements, setAnnouncements] = useState([]);
-    const [annInput, setAnnInput] = useState("");
+  
 
 
 
@@ -124,6 +127,8 @@ export default function DynamicSpace() {
 
     useEffect(() => {
         if (!router.isReady || !id) return;
+
+        fetch("/api/rotateLeader", { method: "POST" });
 
         fetch(`/api/getSpace?spaceId=${id}`)
             .then((res) => res.json())
@@ -722,6 +727,14 @@ export default function DynamicSpace() {
                         {space.title}
                     </h1>
 
+                    <p className="text-2xl text-purple-600 mt-2">
+                        👑 Leader: {
+                            space.members.find(m => m.email === space.leader)?.name || "None"
+                        }
+                    </p>
+
+
+
                     <div className="flex gap-4 mt-6">
 
                         {/* Discussion Button */}
@@ -754,6 +767,11 @@ export default function DynamicSpace() {
                                             className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
                                             onClick={() => {
 
+                                                if (isLeader) {
+                                                    alert("As leader, you cannot answer quizzes this week");
+                                                    return;
+                                                }
+
                                                 if (completedQuizzes.includes(quiz._id)) {
                                                     alert("You already completed this quiz");
                                                     return;
@@ -775,6 +793,11 @@ export default function DynamicSpace() {
                                     <div className="border-t pt-2">
                                         <button
                                             onClick={() => {
+                                                if (!isLeader) {
+                                                    alert("Only the current leader can create quizzes this week");
+                                                    return;
+                                                }
+
                                                 setSelectedQuiz("create");
                                                 setShowQuizDropdown(false);
                                             }}
@@ -958,7 +981,7 @@ export default function DynamicSpace() {
                                                         </button>
                                                     );
                                                 })}
-                                                 <div ref={bottomRef}></div>
+                                                <div ref={bottomRef}></div>
                                             </div>
 
                                         </div>
