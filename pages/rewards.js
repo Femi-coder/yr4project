@@ -45,6 +45,13 @@ export default function Rewards() {
 
   }, [])
 
+  const nextReward =
+    rewards
+      .filter(r => r.cost > points)
+      .sort((a, b) => a.cost - b.cost)[0]?.cost || 100;
+
+  const progress = Math.min((points / nextReward) * 100, 100);
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
 
@@ -52,16 +59,35 @@ export default function Rewards() {
         🎁 Rewards Store
       </h1>
 
-      <p className="mb-6 text-gray-600">
-        You have <span className="text-purple-600 font-semibold">{points}</span> points
-      </p>
+      <div className="mb-6">
+        <p className="text-gray-600">
+          You have <span className="text-purple-600 font-semibold">{points}</span> points
+        </p>
+
+        {rewards.length > 0 && (
+          <div className="mt-2">
+            <div className="text-xs text-gray-500 mb-1">
+              Progress to next reward ({nextReward} pts)
+            </div>
+
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-purple-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {rewards.map((r) => (
           <div
             key={r._id}
-            className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
+            className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200
+            transform hover:-translate-y-2 hover:shadow-xl transition-all duration-300"
           >
 
             {/* TOP (colored header) */}
@@ -147,18 +173,18 @@ export default function Rewards() {
           {history.map((h) => (
             <div
               key={h._id}
-              className="bg-white border rounded-lg p-3 flex justify-between items-center shadow-sm"
+              className="bg-purple-500 border rounded-lg p-3 flex justify-between items-center shadow-sm"
             >
               <div>
-                <p className="font-medium text-gray-800">
+                <p className="font-medium text-white">
                   {h.rewardName}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-white">
                   {new Date(h.timestamp).toLocaleString()}
                 </p>
               </div>
 
-              <span className="text-purple-600 font-semibold">
+              <span className="text-white font-semibold">
                 {h.cost} pts
               </span>
             </div>

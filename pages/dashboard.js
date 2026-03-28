@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import io from "socket.io-client";
 
@@ -11,14 +11,17 @@ export default function Dashboard() {
   const [points, setPoints] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userBreakdown, setUserBreakdown] = useState(null);
+  const [myBreakdown, setMyBreakdown] = useState(null);
+  const [selectedUserBreakdown, setSelectedUserBreakdown] = useState(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
-  const [hasNotification, setHasNotification] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [search, setSearch] = useState("");
   const [showRewards, setShowRewards] = useState(false);
   const [rewards, setRewards] = useState([]);
+  const [redeemableCount, setRedeemableCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const hasLoadedNotifications = useRef(false);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
@@ -62,9 +65,51 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user?.email) return;
 
+    Promise.all([
+      fetch(`/api/getUserPoints?email=${user.email}`).then(res => res.json()),
+      fetch("/api/getRewards").then(res => res.json())
+    ]).then(([pointsData, rewardsData]) => {
+
+      const userPoints = pointsData.points || 0;
+      const rewards = rewardsData.rewards || [];
+
+      const count = rewards.filter(r => userPoints >= r.cost).length;
+
+      setRedeemableCount(count);
+    });
+
+  }, [user]);
+
+  useEffect(() => {
+    const storedNotifications = localStorage.getItem("notifications");
+    const storedUnreadCount = localStorage.getItem("unreadCount");
+
+    if (storedNotifications) {
+      setNotifications(JSON.parse(storedNotifications));
+    }
+
+    if (storedUnreadCount) {
+      setUnreadCount(Number(storedUnreadCount));
+    }
+
+    hasLoadedNotifications.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedNotifications.current) return;
+
+    if (notifications.length === 0 && unreadCount === 0) return;
+
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+    localStorage.setItem("unreadCount", unreadCount);
+  }, [notifications, unreadCount]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+
     fetch(`/api/getUserBreakdown?email=${user.email}`)
       .then(res => res.json())
-      .then(data => setUserBreakdown(data))
+      .then(data => setMyBreakdown(data))
       .catch(err => console.error("Breakdown error:", err));
 
   }, [user]);
@@ -91,8 +136,6 @@ export default function Dashboard() {
     // Listen for space messages
     socket.on("space-message", (data) => {
       if (data.sender !== user.email) {
-        setHasNotification(true);
-
         setNotifications(prev => [
           {
             spaceId: data.spaceId,
@@ -102,6 +145,8 @@ export default function Dashboard() {
           },
           ...prev
         ]);
+
+        setUnreadCount(prev => prev + 1);
       }
     });
 
@@ -152,7 +197,7 @@ export default function Dashboard() {
   const handleUserClick = async (user) => {
     setSelectedUser(user);
     setLoadingBreakdown(true);
-    setUserBreakdown(null);
+    setSelectedUserBreakdown(null);
 
     try {
       const res = await fetch(
@@ -160,7 +205,7 @@ export default function Dashboard() {
       );
       const data = await res.json();
 
-      setUserBreakdown(data);
+      setSelectedUserBreakdown(data);
     } catch (err) {
       console.error("Error fetching breakdown:", err);
     }
@@ -205,7 +250,7 @@ export default function Dashboard() {
             {/* Icons */}
             <div
               onClick={() => {
-                setHasNotification(false);
+                setUnreadCount(0);
                 setShowNotifications(!showNotifications);
               }}
               className="relative cursor-pointer z-[100]"
@@ -224,7 +269,19 @@ export default function Dashboard() {
                   {notifications.map((n, index) => (
                     <div
                       key={index}
-                      onClick={() => router.push(`/spaces/${n.spaceId}`)}
+                      onClick={() => {
+                        setNotifications(prev => {
+                          const updated = prev.filter((_, i) => i !== index);
+
+                          localStorage.setItem("notifications", JSON.stringify(updated));
+
+                          return updated;
+                        });
+
+                        setUnreadCount(prev => Math.max(prev - 1, 0));
+
+                        router.push(`/spaces/${n.spaceId}`);
+                      }}
                       className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer text-sm"
                     >
                       <p className="font-medium text-gray-800">{n.spaceName}</p>
@@ -238,17 +295,27 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {hasNotification && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                  {unreadCount}
+                </span>
               )}
             </div>
-            <button
-              onClick={() => router.push("/rewards")}
-              className="text-xl"
-              title="Rewards"
-            >
-              🎁
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => router.push("/rewards")}
+                className="text-xl"
+                title="Rewards"
+              >
+                🎁
+              </button>
+
+              {redeemableCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {redeemableCount}
+                </span>
+              )}
+            </div>
 
             {/* User + logout */}
             <div className="flex items-center gap-2">
@@ -279,17 +346,17 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
-              <span>{points} pts achieved</span>
+              <span>{points} Current points</span>
             </div>
 
-            {userBreakdown?.breakdown?.length > 0 && (
+            {myBreakdown?.breakdown?.length > 0 && (
               <div className="mt-2 text-purple-500 text-sm">
 
                 <p className="font-medium mb-1">
                   Points Breakdown
                 </p>
 
-                {userBreakdown.breakdown.map((item, index) => (
+                {myBreakdown.breakdown.map((item, index) => (
                   <div key={index}>
                     {item.spaceName} {item.points} pts
                   </div>
@@ -326,7 +393,7 @@ export default function Dashboard() {
                   </p>
 
                   <p className="text-purple-600 font-bold mt-2">
-                    {user.points || 0} pts
+                    {user.totalPoints || 0} pts
                   </p>
                 </div>
               );
@@ -466,17 +533,17 @@ export default function Dashboard() {
               <p className="text-gray-500">Loading...</p>
             )}
 
-            {!loadingBreakdown && userBreakdown && (
+            {!loadingBreakdown && selectedUserBreakdown && (
               <>
                 <p className="mb-4 font-medium">
-                  🏅 Total Points:
+                  🏅 Current Points:
                   <span className="text-purple-600">
-                    {userBreakdown.totalPoints}
+                    {selectedUserBreakdown.totalPoints}
                   </span>
                 </p>
 
                 <div className="space-y-3">
-                  {userBreakdown?.breakdown?.map((item, index) => (
+                  {selectedUserBreakdown?.breakdown?.map((item, index) => (
                     <div
                       key={index}
                       className="bg-gray-50 p-3 rounded-lg flex justify-between"

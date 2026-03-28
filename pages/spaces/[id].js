@@ -35,9 +35,9 @@ export default function DynamicSpace() {
     const messagesContainerRef = useRef(null);
     const [announcements, setAnnouncements] = useState([]);
     const [annInput, setAnnInput] = useState("");
+    const [searchChat, setSearchChat] = useState("");
 
     const isLeader = space?.leader === currentUserEmail;
-
 
     const getYouTubeEmbedUrl = (url) => {
         try {
@@ -87,7 +87,7 @@ export default function DynamicSpace() {
         }
     };
 
-  
+
 
 
 
@@ -845,149 +845,160 @@ export default function DynamicSpace() {
                 {!selectedQuiz && (
                     <div className="bg-white rounded-xl shadow p-4 md:p-6 flex flex-col h-[70vh] md:h-[75vh]">
                         <h3 className="text-lg font-semibold mb-3">Discussion</h3>
-
+                        <input
+                            type="text"
+                            placeholder="Search messages..."
+                            value={searchChat}
+                            onChange={(e) => setSearchChat(e.target.value)}
+                            className="w-full mb-3 px- py-2 border rounded-lg text-sm outline-none"
+                        />
                         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-2">
-                            {messages.map((msg, i) => {
-                                const isMe = msg.sender === currentUserEmail;
+                            {messages
+                                .filter((msg) =>
+                                    msg.content?.toLowerCase().includes(searchChat.toLowerCase()) ||
+                                    msg.name?.toLowerCase().includes(searchChat.toLowerCase())
+                                )
+                                .map((msg, i) => {
+                                    const isMe = msg.sender === currentUserEmail;
 
 
-                                return (
-                                    <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                                        <div
-                                            className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
-                                                ? "bg-purple-600 text-white rounded-br-none"
-                                                : "bg-gray-200 text-gray-800 rounded-bl-none"
-                                                }`}
-                                        >
-                                            <p className="text-xs font-semibold mb-1">
-                                                {isMe ? "You" : msg.name}
-                                            </p>
-                                            {msg.type === "file" ? (
+                                    return (
+                                        <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                            <div
+                                                className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
+                                                    ? "bg-purple-600 text-white rounded-br-none"
+                                                    : "bg-gray-200 text-gray-800 rounded-bl-none"
+                                                    }`}
+                                            >
+                                                <p className="text-xs font-semibold mb-1">
+                                                    {isMe ? "You" : msg.name}
+                                                </p>
+                                                {msg.type === "file" ? (
 
-                                                <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
-                                                            📄
+                                                    <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
+                                                                📄
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-semibold truncate">
+                                                                    {msg.originalName}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500">
+                                                                    Shared by {msg.name}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-semibold truncate">
-                                                                {msg.originalName}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">
-                                                                Shared by {msg.name}
-                                                            </p>
-                                                        </div>
-                                                    </div>
 
-                                                    <a
-                                                        href={msg.fileUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
-                                                    >
-                                                        Download
-                                                    </a>
-                                                </div>
-
-                                            ) : msg.type === "youtube" ? (
-
-                                                <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
-                                                    <iframe
-                                                        src={getYouTubeEmbedUrl(msg.content)}
-                                                        className="w-full aspect-video"
-                                                        allowFullScreen
-                                                    ></iframe>
-                                                    <div className="bg-white p-2 text-xs text-purple-600 truncate">
-                                                        <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                                                            Open in YouTube →
+                                                        <a
+                                                            href={msg.fileUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
+                                                        >
+                                                            Download
                                                         </a>
                                                     </div>
-                                                </div>
 
-                                            ) : msg.type === "image" ? (
+                                                ) : msg.type === "youtube" ? (
 
-                                                <div className="w-full max-w-sm">
-                                                    <img
-                                                        src={msg.content}
-                                                        alt="Shared content"
-                                                        className="rounded-xl shadow-md"
-                                                    />
-                                                    <a
-                                                        href={msg.content}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs text-purple-600 underline mt-1 block"
-                                                    >
-                                                        Open image →
-                                                    </a>
-                                                </div>
-
-                                            ) : msg.type === "link" ? (
-
-                                                <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-lg">🔗</span>
-                                                        <span className="text-sm font-semibold truncate">
-                                                            {new URL(msg.content).hostname}
-                                                        </span>
+                                                    <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
+                                                        <iframe
+                                                            src={getYouTubeEmbedUrl(msg.content)}
+                                                            className="w-full aspect-video"
+                                                            allowFullScreen
+                                                        ></iframe>
+                                                        <div className="bg-white p-2 text-xs text-purple-600 truncate">
+                                                            <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                                                                Open in YouTube →
+                                                            </a>
+                                                        </div>
                                                     </div>
-                                                    <a
-                                                        href={msg.content}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-purple-600 text-sm underline"
-                                                    >
-                                                        Visit Website →
-                                                    </a>
+
+                                                ) : msg.type === "image" ? (
+
+                                                    <div className="w-full max-w-sm">
+                                                        <img
+                                                            src={msg.content}
+                                                            alt="Shared content"
+                                                            className="rounded-xl shadow-md"
+                                                        />
+                                                        <a
+                                                            href={msg.content}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-purple-600 underline mt-1 block"
+                                                        >
+                                                            Open image →
+                                                        </a>
+                                                    </div>
+
+                                                ) : msg.type === "link" ? (
+
+                                                    <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-lg">🔗</span>
+                                                            <span className="text-sm font-semibold truncate">
+                                                                {new URL(msg.content).hostname}
+                                                            </span>
+                                                        </div>
+                                                        <a
+                                                            href={msg.content}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-purple-600 text-sm underline"
+                                                        >
+                                                            Visit Website →
+                                                        </a>
+                                                    </div>
+
+                                                ) : msg.type === "audio" ? (
+
+                                                    <audio controls className="mt-2">
+                                                        <source src={msg.content} type="audio/webm" />
+                                                        Your browser does not support the audio element.
+                                                    </audio>
+
+                                                ) : (
+
+                                                    <p>{msg.content || msg.message}</p>
+
+                                                )}
+
+                                                <p className="text-[10px] opacity-70 mt-1 text-right">
+                                                    {formatTime(msg.timestamp)}
+                                                </p>
+
+                                                {/* REACTIONS*/}
+                                                <div className="flex gap-3 mt-2 text-sm">
+                                                    {["like", "clap", "fire"].map((type) => {
+                                                        const count =
+                                                            msg.reactions?.filter((r) => r.type === type).length || 0;
+
+                                                        const emojiMap = {
+                                                            like: "👍",
+                                                            clap: "👏",
+                                                            fire: "🔥",
+                                                        };
+
+                                                        return (
+                                                            <button
+                                                                key={type}
+                                                                onClick={() => handleReaction(msg._id, type)}
+                                                                className="flex items-center gap-1 hover:scale-110 transition"
+                                                            >
+                                                                <span>{emojiMap[type]}</span>
+                                                                <span>{count}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    <div ref={bottomRef}></div>
                                                 </div>
 
-                                            ) : msg.type === "audio" ? (
-
-                                                <audio controls className="mt-2">
-                                                    <source src={msg.content} type="audio/webm" />
-                                                    Your browser does not support the audio element.
-                                                </audio>
-
-                                            ) : (
-
-                                                <p>{msg.content || msg.message}</p>
-
-                                            )}
-
-                                            <p className="text-[10px] opacity-70 mt-1 text-right">
-                                                {formatTime(msg.timestamp)}
-                                            </p>
-
-                                            {/* REACTIONS*/}
-                                            <div className="flex gap-3 mt-2 text-sm">
-                                                {["like", "clap", "fire"].map((type) => {
-                                                    const count =
-                                                        msg.reactions?.filter((r) => r.type === type).length || 0;
-
-                                                    const emojiMap = {
-                                                        like: "👍",
-                                                        clap: "👏",
-                                                        fire: "🔥",
-                                                    };
-
-                                                    return (
-                                                        <button
-                                                            key={type}
-                                                            onClick={() => handleReaction(msg._id, type)}
-                                                            className="flex items-center gap-1 hover:scale-110 transition"
-                                                        >
-                                                            <span>{emojiMap[type]}</span>
-                                                            <span>{count}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                                <div ref={bottomRef}></div>
                                             </div>
-
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
                         </div>
 
                         {/* DISCUSSION INPUT */}
