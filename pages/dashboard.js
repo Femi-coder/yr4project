@@ -350,17 +350,39 @@ export default function Dashboard() {
             </div>
 
             {myBreakdown?.breakdown?.length > 0 && (
-              <div className="mt-2 text-purple-500 text-sm">
+              <div className="mt-6">
 
-                <p className="font-medium mb-1">
-                  Points Breakdown
+                <p className="font-semibold text-purple-700 mb-4 text-lg">
+                  📊 Points Breakdown
                 </p>
+                <p className="text-md text-gray-600 mb-3">
+                  Total Earned:{" "}
+                  <span className="text-purple-700 font-semibold">
+                    {myBreakdown.breakdown.reduce(
+                      (sum, item) => sum + item.points,
+                      0
+                    )} pts
+                  </span>
+                </p>
+                <div className="flex gap-4 overflow-x-auto pb-2">
 
-                {myBreakdown.breakdown.map((item, index) => (
-                  <div key={index}>
-                    {item.spaceName} {item.points} pts
-                  </div>
-                ))}
+                  {myBreakdown.breakdown.map((item, index) => (
+                    <div
+                      key={index}
+                      className="min-w-[180px] bg-gray-50 rounded-xl p-4 text-center shadow-sm 
+                     transform hover:-translate-y-1 hover:shadow-md transition-all duration-300"
+                    >
+                      <p className="text-sm text-gray-600 truncate">
+                        {item.spaceName}
+                      </p>
+
+                      <p className="text-purple-600 font-bold mt-2 text-lg">
+                        {item.points} pts
+                      </p>
+                    </div>
+                  ))}
+
+                </div>
 
               </div>
             )}
