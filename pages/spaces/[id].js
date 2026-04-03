@@ -513,62 +513,84 @@ export default function DynamicSpace() {
             }
         };
         return (
-            <div className="bg-white rounded-xl shadow p-6 space-y-4 mt-6">
-                <h3 className="text-xl font-semibold">Create Quiz</h3>
+            <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5 mt-6 border border-gray-100">
 
-                <input
-                    className="w-full border p-2 rounded"
-                    placeholder="Quiz Title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                />
 
-                <input
-                    className="w-full border p-2 rounded"
-                    placeholder="Question"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                />
+                <h3 className="text-2xl font-semibold text-purple-700 flex items-center gap-2">
+                    📝 Create Quiz
+                </h3>
 
-                {options.map((opt, i) => (
+
+                <div>
+                    <label className="text-sm text-gray-500">Quiz Title</label>
                     <input
-                        key={i}
-                        className="w-full border p-2 rounded"
-                        placeholder={`Option ${i + 1}`}
-                        value={opt}
-                        onChange={(e) => {
-                            const copy = [...options];
-                            copy[i] = e.target.value;
-                            setOptions(copy);
-                        }}
+                        className="w-full mt-1 border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        placeholder="Enter quiz title..."
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
                     />
-                ))}
+                </div>
 
-                <select
-                    className="border p-2 rounded"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                >
-                    <option value={0}>Correct: Option 1</option>
-                    <option value={1}>Correct: Option 2</option>
-                    <option value={2}>Correct: Option 3</option>
-                    <option value={3}>Correct: Option 4</option>
-                </select>
 
-                <button
-                    type="button"
-                    onClick={addQuestion}
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                    Add Question
-                </button>
-                <button
-                    type="button"
-                    onClick={saveQuiz}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                >
-                    Save Quiz
-                </button>
+                <div>
+                    <label className="text-sm text-gray-500">Question</label>
+                    <input
+                        className="w-full mt-1 border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        placeholder="Enter your question..."
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {options.map((opt, i) => (
+                        <input
+                            key={i}
+                            className="border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            placeholder={`Option ${i + 1}`}
+                            value={opt}
+                            onChange={(e) => {
+                                const copy = [...options];
+                                copy[i] = e.target.value;
+                                setOptions(copy);
+                            }}
+                        />
+                    ))}
+                </div>
+
+                <div>
+                    <label className="text-sm text-gray-500">Correct Answer</label>
+                    <select
+                        className="w-full mt-1 border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        value={answer}
+                        onChange={(e) => setAnswer(e.target.value)}
+                    >
+                        <option value={0}>Option 1</option>
+                        <option value={1}>Option 2</option>
+                        <option value={2}>Option 3</option>
+                        <option value={3}>Option 4</option>
+                    </select>
+                </div>
+
+
+                <div className="flex gap-3 pt-2">
+                    <button
+                        type="button"
+                        onClick={addQuestion}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition"
+                    >
+                        ➕ Add Question
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={saveQuiz}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition"
+                    >
+                        💾 Save Quiz
+                    </button>
+                </div>
+
             </div>
         );
     }
