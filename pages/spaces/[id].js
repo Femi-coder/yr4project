@@ -87,6 +87,24 @@ export default function DynamicSpace() {
         }
     };
 
+    const getTimeRemaining = (lastRotation) => {
+        if (!lastRotation) return "Starting soon";
+
+        const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+        const endTime = lastRotation + ONE_WEEK;
+
+        const diff = endTime - Date.now();
+
+        if (diff <= 0) return "Rotating soon";
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor(
+            (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+
+        return `${days}d ${hours}h remaining`;
+    };
+
 
 
 
@@ -128,7 +146,7 @@ export default function DynamicSpace() {
     useEffect(() => {
         if (!router.isReady || !id) return;
 
-        fetch("/api/rotateLeader", { method: "POST" });
+        fetch(`"/api/rotateLeader"?spaceId=${id}`, { method: "POST" });
 
         fetch(`/api/getSpace?spaceId=${id}`)
             .then((res) => res.json())
@@ -732,7 +750,9 @@ export default function DynamicSpace() {
                             space.members.find(m => m.email === space.leader)?.name || "None"
                         }
                     </p>
-
+                    <p className="text-lg text-gray-500 mt-1">
+                        ⏳ {getTimeRemaining(space.lastRotation)}
+                    </p>
 
 
                     <div className="flex gap-4 mt-6">
@@ -852,154 +872,203 @@ export default function DynamicSpace() {
                             onChange={(e) => setSearchChat(e.target.value)}
                             className="w-full mb-3 px- py-2 border rounded-lg text-sm outline-none"
                         />
-                        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-2">
+                        <div
+                            ref={messagesContainerRef}
+                            className="flex-1 overflow-y-auto space-y-3 pr-2"
+                        >
+
+                            {/* PINNED MESSAGES */}
+                            {messages.some((msg) => msg.pinned) && (
+                                <div className="mb-4">
+                                    <h4 className="font-semibold text-yellow-700 mb-2">
+                                        📌 Pinned Messages
+                                    </h4>
+
+                                    <div className="space-y-2">
+                                        {messages
+                                            .filter((msg) => msg.pinned)
+                                            .map((msg, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="bg-yellow-50 p-3 rounded-lg shadow-sm"
+                                                >
+                                                    <p className="text-sm font-semibold text-gray-800">
+                                                        {msg.name}
+                                                    </p>
+                                                    <p className="text-sm text-gray-700">
+                                                        {msg.content || msg.message}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-500 mt-1">
+                                                        {formatTime(msg.timestamp)}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/*  NORMAL MESSAGES */}
                             {messages
-                                .filter((msg) =>
-                                    msg.content?.toLowerCase().includes(searchChat.toLowerCase()) ||
-                                    msg.name?.toLowerCase().includes(searchChat.toLowerCase())
+                                .filter((msg) => !msg.pinned)
+                                .filter(
+                                    (msg) =>
+                                        msg.content
+                                            ?.toLowerCase()
+                                            .includes(searchChat.toLowerCase()) ||
+                                        msg.name
+                                            ?.toLowerCase()
+                                            .includes(searchChat.toLowerCase())
                                 )
                                 .map((msg, i) => {
                                     const isMe = msg.sender === currentUserEmail;
 
-
                                     return (
-                                        <div key={i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                        <div
+                                            key={i}
+                                            className={`flex ${isMe ? "justify-end" : "justify-start"
+                                                }`}
+                                        >
                                             <div
                                                 className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
                                                     ? "bg-purple-600 text-white rounded-br-none"
                                                     : "bg-gray-200 text-gray-800 rounded-bl-none"
                                                     }`}
                                             >
+                                                {/* NAME */}
                                                 <p className="text-xs font-semibold mb-1">
                                                     {isMe ? "You" : msg.name}
                                                 </p>
+
+                                                {/* MESSAGE TYPE HANDLING */}
                                                 {msg.type === "file" ? (
-
                                                     <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
-                                                                📄
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <p className="text-sm font-semibold truncate">
-                                                                    {msg.originalName}
-                                                                </p>
-                                                                <p className="text-xs text-gray-500">
-                                                                    Shared by {msg.name}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
+                                                        <p className="text-sm font-semibold">
+                                                            {msg.originalName}
+                                                        </p>
                                                         <a
                                                             href={msg.fileUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="block text-center bg-purple-600 text-white text-sm py-2 rounded-lg hover:bg-purple-700 transition"
+                                                            className="text-purple-600 text-sm underline"
                                                         >
                                                             Download
                                                         </a>
                                                     </div>
-
                                                 ) : msg.type === "youtube" ? (
-
-                                                    <div className="w-full max-w-md rounded-xl overflow-hidden shadow-md bg-black">
-                                                        <iframe
-                                                            src={getYouTubeEmbedUrl(msg.content)}
-                                                            className="w-full aspect-video"
-                                                            allowFullScreen
-                                                        ></iframe>
-                                                        <div className="bg-white p-2 text-xs text-purple-600 truncate">
-                                                            <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                                                                Open in YouTube →
-                                                            </a>
-                                                        </div>
-                                                    </div>
-
+                                                    <iframe
+                                                        src={getYouTubeEmbedUrl(msg.content)}
+                                                        className="w-full max-w-md aspect-video rounded"
+                                                        allowFullScreen
+                                                    />
                                                 ) : msg.type === "image" ? (
-
-                                                    <div className="w-full max-w-sm">
-                                                        <img
-                                                            src={msg.content}
-                                                            alt="Shared content"
-                                                            className="rounded-xl shadow-md"
-                                                        />
-                                                        <a
-                                                            href={msg.content}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-xs text-purple-600 underline mt-1 block"
-                                                        >
-                                                            Open image →
-                                                        </a>
-                                                    </div>
-
+                                                    <img
+                                                        src={msg.content}
+                                                        className="rounded-lg max-w-sm"
+                                                    />
                                                 ) : msg.type === "link" ? (
-
-                                                    <div className="bg-white rounded-xl shadow-md p-4 w-full max-w-sm">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="text-lg">🔗</span>
-                                                            <span className="text-sm font-semibold truncate">
-                                                                {new URL(msg.content).hostname}
-                                                            </span>
-                                                        </div>
-                                                        <a
-                                                            href={msg.content}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-purple-600 text-sm underline"
-                                                        >
-                                                            Visit Website →
-                                                        </a>
-                                                    </div>
-
+                                                    <a
+                                                        href={msg.content}
+                                                        target="_blank"
+                                                        className="text-purple-600 underline"
+                                                    >
+                                                        {msg.content}
+                                                    </a>
                                                 ) : msg.type === "audio" ? (
-
-                                                    <audio controls className="mt-2">
-                                                        <source src={msg.content} type="audio/webm" />
-                                                        Your browser does not support the audio element.
+                                                    <audio controls>
+                                                        <source
+                                                            src={msg.content}
+                                                            type="audio/webm"
+                                                        />
                                                     </audio>
-
                                                 ) : (
-
                                                     <p>{msg.content || msg.message}</p>
-
                                                 )}
 
+                                                {/* TIME */}
                                                 <p className="text-[10px] opacity-70 mt-1 text-right">
                                                     {formatTime(msg.timestamp)}
                                                 </p>
 
-                                                {/* REACTIONS*/}
+                                                {/*  PIN BUTTON */}
+                                                {isLeader && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            const res = await fetch(
+                                                                "/api/pinMessage",
+                                                                {
+                                                                    method: "POST",
+                                                                    headers: {
+                                                                        "Content-Type":
+                                                                            "application/json",
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                        messageId: msg._id,
+                                                                    }),
+                                                                }
+                                                            );
+
+                                                            const data = await res.json();
+
+                                                            if (!res.ok) {
+                                                                alert(
+                                                                    data.error ||
+                                                                    "Failed to pin message"
+                                                                );
+                                                                return;
+                                                            }
+
+                                                            router.reload();
+                                                        }}
+                                                        className="text-xs mt-2 text-yellow-600 hover:underline"
+                                                    >
+                                                        📌 Pin
+                                                    </button>
+                                                )}
+
+                                                {/*  REACTIONS */}
                                                 <div className="flex gap-3 mt-2 text-sm">
-                                                    {["like", "clap", "fire"].map((type) => {
-                                                        const count =
-                                                            msg.reactions?.filter((r) => r.type === type).length || 0;
+                                                    {["like", "clap", "fire"].map(
+                                                        (type) => {
+                                                            const count =
+                                                                msg.reactions?.filter(
+                                                                    (r) => r.type === type
+                                                                ).length || 0;
 
-                                                        const emojiMap = {
-                                                            like: "👍",
-                                                            clap: "👏",
-                                                            fire: "🔥",
-                                                        };
+                                                            const emojiMap = {
+                                                                like: "👍",
+                                                                clap: "👏",
+                                                                fire: "🔥",
+                                                            };
 
-                                                        return (
-                                                            <button
-                                                                key={type}
-                                                                onClick={() => handleReaction(msg._id, type)}
-                                                                className="flex items-center gap-1 hover:scale-110 transition"
-                                                            >
-                                                                <span>{emojiMap[type]}</span>
-                                                                <span>{count}</span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                    <div ref={bottomRef}></div>
+                                                            return (
+                                                                <button
+                                                                    key={type}
+                                                                    onClick={() =>
+                                                                        handleReaction(
+                                                                            msg._id,
+                                                                            type
+                                                                        )
+                                                                    }
+                                                                    className="flex items-center gap-1 hover:scale-110 transition"
+                                                                >
+                                                                    <span>
+                                                                        {emojiMap[type]}
+                                                                    </span>
+                                                                    <span>{count}</span>
+                                                                </button>
+                                                            );
+                                                        }
+                                                    )}
                                                 </div>
-
                                             </div>
                                         </div>
                                     );
                                 })}
+
+                            <div ref={bottomRef}></div>
                         </div>
+
+
 
                         {/* DISCUSSION INPUT */}
                         <div className="mt-4 flex gap-3">

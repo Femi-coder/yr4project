@@ -44,6 +44,7 @@ export default async function handler(req, res) {
       { _id: new ObjectId(spaceId) },
       {
         $push: { quizzes: newQuiz },
+        $inc: { quizzesThisWeek: 1 } 
       }
     );
 
