@@ -19,6 +19,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             points: user.points || 0,
+            totalPoints: user.totalPoints || 0
         });
 
     } catch (error) {

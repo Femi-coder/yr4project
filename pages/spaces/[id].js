@@ -16,6 +16,8 @@ export default function DynamicSpace() {
 
     const [messages, setMessages] = useState([]);
     const [chatInput, setChatInput] = useState("");
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [openMenu, setOpenMenu] = useState(null);
 
 
     const quizzes = space?.quizzes || [];
@@ -36,6 +38,7 @@ export default function DynamicSpace() {
     const [announcements, setAnnouncements] = useState([]);
     const [annInput, setAnnInput] = useState("");
     const [searchChat, setSearchChat] = useState("");
+    const [spaceLeaderboard, setSpaceLeaderboard] = useState([]);
 
     const isLeader = space?.leader === currentUserEmail;
 
@@ -95,14 +98,17 @@ export default function DynamicSpace() {
 
         const diff = endTime - Date.now();
 
-        if (diff <= 0) return "Rotating soon";
+        if (diff <= 0) return "Rotating now...";
 
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor(
             (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
         );
+        const minutes = Math.floor(
+            (diff % (1000 * 60 * 60)) / (1000 * 60)
+        );
 
-        return `${days}d ${hours}h remaining`;
+        return `${days}d ${hours}h ${minutes}m remaining`;
     };
 
 
@@ -126,10 +132,14 @@ export default function DynamicSpace() {
 
     // Load current user
     useEffect(() => {
-        setCurrentUserEmail(localStorage.getItem("userEmail"));
-        setCurrentUserName(localStorage.getItem("userName"));
-    }, []);
+        if (typeof window !== "undefined") {
+            const email = localStorage.getItem("userEmail");
+            const name = localStorage.getItem("userName");
 
+            setCurrentUserEmail(email || "");
+            setCurrentUserName(name || "");
+        }
+    }, []);
     //Load completed quizzes
     useEffect(() => {
 
@@ -146,18 +156,44 @@ export default function DynamicSpace() {
     useEffect(() => {
         if (!router.isReady || !id) return;
 
-        fetch(`"/api/rotateLeader"?spaceId=${id}`, { method: "POST" });
+        const loadSpace = async () => {
+            const res = await fetch(`/api/getSpace?spaceId=${id}`, {
+                cache: "no-store"
+            });
 
-        fetch(`/api/getSpace?spaceId=${id}`)
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.space) {
-                    setSpace(data.space);
-                } else {
-                    console.error("Space not found:", data);
+            const data = await res.json();
+
+            if (data.space) {
+                setSpace(data.space);
+
+                //  only rotate if needed
+                const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+                const lastRotation = data.space.lastRotation || 0;
+
+                if (
+                    Date.now() - lastRotation >= ONE_WEEK &&
+                    !data.space.rotationProcessed
+                ) {
+                    await fetch(`/api/rotateLeader?spaceId=${id}`, {
+                        method: "POST"
+                    });
+
+                    // refetch updated space
+                    const updated = await fetch(`/api/getSpace?spaceId=${id}`, {
+                        cache: "no-store"
+                    });
+
+                    const updatedData = await updated.json();
+
+                    if (updatedData.space) {
+                        setSpace(updatedData.space);
+                    }
                 }
-            })
-            .catch((err) => console.error("Fetch error:", err));
+            }
+        };
+
+        loadSpace();
+
     }, [router.isReady, id]);
 
 
@@ -169,6 +205,15 @@ export default function DynamicSpace() {
         fetch(`/api/getSpaceMessages?spaceId=${id}`)
             .then((res) => res.json())
             .then((data) => setMessages(data.messages || []));
+    }, [id]);
+
+
+    useEffect(() => {
+        if (!id) return;
+
+        fetch(`/api/getSpaceLeaderboard?spaceId=${id}`)
+            .then(res => res.json())
+            .then(data => setSpaceLeaderboard(data.leaderboard || []));
     }, [id]);
 
     // Load announcements
@@ -262,6 +307,7 @@ export default function DynamicSpace() {
             type: detectMessageType(chatInput.trim()),
             content: chatInput.trim(),
             timestamp: Date.now(),
+            replyTo: replyingTo || null
         };
 
         setMessages((prev) => [...prev, msg]);
@@ -276,6 +322,38 @@ export default function DynamicSpace() {
         socketRef.current.emit("space-message", msg);
 
         setChatInput("");
+        setReplyingTo(null);
+    };
+
+    const handleDelete = async (messageId) => {
+        try {
+            const res = await fetch("/api/deleteMessage", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messageId,
+                    userEmail: currentUserEmail
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.error);
+                return;
+            }
+
+            setMessages((prev) =>
+                prev.filter((msg) => msg._id !== messageId)
+            );
+
+            setOpenMenu(null);
+
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const sendAudioMessage = (audioUrl) => {
@@ -720,43 +798,49 @@ export default function DynamicSpace() {
                     Members
                 </h2>
 
-                {space.members.map((m, i) => {
-                    const isYou = m.email === currentUserEmail;
+                {[...space.members]
+                    .sort((a, b) => {
+                        if (a.email === currentUserEmail) return -1;
+                        if (b.email === currentUserEmail) return 1;
+                        return 0;
+                    })
+                    .map((m, i) => {
+                        const isYou = m.email === currentUserEmail;
 
-                    return (
-                        <div
-                            key={i}
-                            className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 mb-2"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="relative">
-                                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
-                                        {m.name.charAt(0).toUpperCase()}
+                        return (
+                            <div
+                                key={i}
+                                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 mb-2"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
+                                            {m.name.charAt(0).toUpperCase()}
+                                        </div>
+
+                                        <span
+                                            className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${onlineUsers[m.email] ? "bg-green-500" : "bg-red-500"
+                                                }`}
+                                        ></span>
                                     </div>
 
-                                    <span
-                                        className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${onlineUsers[m.email] ? "bg-green-500" : "bg-red-500"
-                                            }`}
-                                    ></span>
+                                    <div>
+                                        <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
+                                        <p className="text-xs text-gray-500">{m.email}</p>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <p className="font-medium text-sm">{isYou ? "You" : m.name}</p>
-                                    <p className="text-xs text-gray-500">{m.email}</p>
-                                </div>
+                                {!isYou && (
+                                    <Link
+                                        href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
+                                        className="text-purple-600 text-xs font-semibold hover:underline"
+                                    >
+                                        DM
+                                    </Link>
+                                )}
                             </div>
-
-                            {!isYou && (
-                                <Link
-                                    href={`/dm/${encodeURIComponent(m.email)}?name=${encodeURIComponent(m.name)}`}
-                                    className="text-purple-600 text-xs font-semibold hover:underline"
-                                >
-                                    DM
-                                </Link>
-                            )}
-                        </div>
-                    );
-                })}
+                        );
+                    })}
             </aside>
 
             {/* MAIN CONTENT — DISCUSSION */}
@@ -775,6 +859,23 @@ export default function DynamicSpace() {
                     <p className="text-lg text-gray-500 mt-1">
                         ⏳ {getTimeRemaining(space.lastRotation)}
                     </p>
+                    <div className="bg-white rounded-xl shadow p-4 mt-6">
+                        <h3 className="text-lg font-semibold text-purple-700 mb-3">
+                            🏆 Space Leaderboard
+                        </h3>
+
+                        {spaceLeaderboard.map((u, i) => (
+                            <div key={u.email} className="flex justify-between py-2">
+                                <span>
+                                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}{" "}
+                                    {u.name}
+                                </span>
+                                <span className="text-purple-600 font-semibold">
+                                    {u.points} pts
+                                </span>
+                            </div>
+                        ))}
+                    </div>
 
 
                     <div className="flex gap-4 mt-6">
@@ -909,27 +1010,46 @@ export default function DynamicSpace() {
                                     <div className="space-y-2">
                                         {messages
                                             .filter((msg) => msg.pinned)
-                                            .map((msg, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="bg-yellow-50 p-3 rounded-lg shadow-sm"
-                                                >
-                                                    <p className="text-sm font-semibold text-gray-800">
-                                                        {msg.name}
-                                                    </p>
-                                                    <p className="text-sm text-gray-700">
-                                                        {msg.content || msg.message}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-500 mt-1">
-                                                        {formatTime(msg.timestamp)}
-                                                    </p>
-                                                </div>
-                                            ))}
+                                            .map((msg, i) => {
+
+                                                const parentMessage = messages.find(
+                                                    (m) => m._id?.toString() === msg.replyTo
+                                                );
+
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        className="bg-yellow-50 p-3 rounded-lg shadow-sm"
+                                                    >
+                                                        <p className="text-sm font-semibold text-orange">
+                                                            {msg.name}
+                                                        </p>
+
+                                                        {/* REPLY PREVIEW */}
+                                                        {parentMessage && (
+                                                            <div className="border-l-4 border-purple-400 bg-purple-50 text-xs p-2 rounded mb-1">
+                                                                <span className="font-medium">
+                                                                    {parentMessage.name || "User"}:
+                                                                </span>{" "}
+                                                                {parentMessage.content}
+                                                            </div>
+                                                        )}
+
+                                                        <p className="text-lg text-white-500">
+                                                            {msg.content || msg.message}
+                                                        </p>
+
+                                                        <p className="text-[10px] text-gray-500 mt-1">
+                                                            {formatTime(msg.timestamp)}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
                                 </div>
                             )}
 
-                            {/*  NORMAL MESSAGES */}
+                            {/* NORMAL MESSAGES */}
                             {messages
                                 .filter((msg) => !msg.pinned)
                                 .filter(
@@ -944,11 +1064,14 @@ export default function DynamicSpace() {
                                 .map((msg, i) => {
                                     const isMe = msg.sender === currentUserEmail;
 
+                                    const parentMessage = messages.find(
+                                        (m) => m._id?.toString() === msg.replyTo
+                                    );
+
                                     return (
                                         <div
                                             key={i}
-                                            className={`flex ${isMe ? "justify-end" : "justify-start"
-                                                }`}
+                                            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                                         >
                                             <div
                                                 className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
@@ -956,12 +1079,45 @@ export default function DynamicSpace() {
                                                     : "bg-gray-200 text-gray-800 rounded-bl-none"
                                                     }`}
                                             >
+                                                <div className="flex justify-end">
+                                                    {isMe && (
+                                                        <div className="relative">
+                                                            <button
+                                                                onClick={() =>
+                                                                    setOpenMenu(openMenu === msg._id ? null : msg._id)
+                                                                }
+                                                                className="text-xs text-gray-300 hover:text-white"
+                                                            >
+                                                                ⋮
+                                                            </button>
+
+                                                            {openMenu === msg._id && (
+                                                                <div className="absolute right-0 mt-1 bg-white shadow rounded text-xl z-10">
+                                                                    <button
+                                                                        onClick={() => handleDelete(msg._id)}
+                                                                        className="block px-3 py-2 hover:bg-gray-100 text-red-500"
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 {/* NAME */}
                                                 <p className="text-xs font-semibold mb-1">
                                                     {isMe ? "You" : msg.name}
                                                 </p>
 
-                                                {/* MESSAGE TYPE HANDLING */}
+                                                {/*  REPLY PREVIEW */}
+                                                {parentMessage && (
+                                                    <div className="bg-gray-200 text-black text-xs p-2 rounded mb-1">
+                                                        <strong>{parentMessage.name || "User"}:</strong>{" "}
+                                                        {parentMessage.content}
+                                                    </div>
+                                                )}
+
+                                                {/* MESSAGE TYPE */}
                                                 {msg.type === "file" ? (
                                                     <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
                                                         <p className="text-sm font-semibold">
@@ -997,10 +1153,7 @@ export default function DynamicSpace() {
                                                     </a>
                                                 ) : msg.type === "audio" ? (
                                                     <audio controls>
-                                                        <source
-                                                            src={msg.content}
-                                                            type="audio/webm"
-                                                        />
+                                                        <source src={msg.content} type="audio/webm" />
                                                     </audio>
                                                 ) : (
                                                     <p>{msg.content || msg.message}</p>
@@ -1011,41 +1164,43 @@ export default function DynamicSpace() {
                                                     {formatTime(msg.timestamp)}
                                                 </p>
 
-                                                {/*  PIN BUTTON */}
-                                                {isLeader && (
-                                                    <button
-                                                        onClick={async () => {
-                                                            const res = await fetch(
-                                                                "/api/pinMessage",
-                                                                {
+                                                {/* BUTTONS */}
+                                                <div className="flex flex-col mt-2 gap-1">
+                                                    {isLeader && (
+                                                        <button
+                                                            onClick={async () => {
+                                                                const res = await fetch("/api/pinMessage", {
                                                                     method: "POST",
                                                                     headers: {
-                                                                        "Content-Type":
-                                                                            "application/json",
+                                                                        "Content-Type": "application/json",
                                                                     },
                                                                     body: JSON.stringify({
                                                                         messageId: msg._id,
                                                                     }),
+                                                                });
+
+                                                                const data = await res.json();
+
+                                                                if (!res.ok) {
+                                                                    alert(data.error || "Failed to pin message");
+                                                                    return;
                                                                 }
-                                                            );
 
-                                                            const data = await res.json();
+                                                                router.reload();
+                                                            }}
+                                                            className="text-xs mt-2 text-yellow-600 hover:underline"
+                                                        >
+                                                            📌 Pin
+                                                        </button>
+                                                    )}
 
-                                                            if (!res.ok) {
-                                                                alert(
-                                                                    data.error ||
-                                                                    "Failed to pin message"
-                                                                );
-                                                                return;
-                                                            }
-
-                                                            router.reload();
-                                                        }}
-                                                        className="text-xs mt-2 text-yellow-600 hover:underline"
+                                                    <button
+                                                        onClick={() => setReplyingTo(msg._id)}
+                                                        className="text-xs mt-2 text-purple-400 hover:underline"
                                                     >
-                                                        📌 Pin
+                                                        Reply
                                                     </button>
-                                                )}
+                                                </div>
 
                                                 {/*  REACTIONS */}
                                                 <div className="flex gap-3 mt-2 text-sm">
@@ -1085,11 +1240,22 @@ export default function DynamicSpace() {
                                             </div>
                                         </div>
                                     );
-                                })}
+                                })
+                            }
 
                             <div ref={bottomRef}></div>
                         </div>
-
+                        {replyingTo && (
+                            <div className="text-xs text-gray-500 mb-2 flex justify-between">
+                                <span>Replying to message</span>
+                                <button
+                                    onClick={() => setReplyingTo(null)}
+                                    className="text-red-400"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
 
 
                         {/* DISCUSSION INPUT */}

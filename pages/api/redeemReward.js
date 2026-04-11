@@ -1,4 +1,5 @@
 import clientPromise from "../../lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export default async function handler(req, res) {
 
@@ -13,28 +14,31 @@ export default async function handler(req, res) {
         const client = await clientPromise;
         const db = client.db("studentcollaboration");
 
-        // Get the user
         const user = await db.collection("users").findOne({ email });
 
-        // Get reward
         const reward = await db.collection("rewards").findOne({
-            _id: new (require("mongodb").ObjectId)(rewardId)
+            _id: new ObjectId(rewardId)
         });
 
         if (!user || !reward) {
             return res.status(404).json({ error: "User or reward not found" });
         }
 
-        // Check points
-        if ((user.points || 0) < reward.cost) {
+        // Atomic safe update
+        const result = await db.collection("users").findOneAndUpdate(
+            {
+                email,
+                points: { $gte: reward.cost }
+            },
+            {
+                $inc: { points: -reward.cost }
+            },
+            { returnDocument: "after" }
+        );
+
+        if (!result) {
             return res.status(400).json({ error: "Not enough points" });
         }
-
-        // Deduct points
-        await db.collection("users").updateOne(
-            { email },
-            { $inc: { points: -reward.cost } }
-        );
 
         await db.collection("rewardHistory").insertOne({
             email,
@@ -49,5 +53,4 @@ export default async function handler(req, res) {
         console.error("Redeem error:", err);
         return res.status(500).json({ error: "Server error" });
     }
-
 }

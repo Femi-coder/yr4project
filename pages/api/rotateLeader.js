@@ -1,90 +1,106 @@
 import clientPromise from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-const { spaceId } = req.query;
 
 export default async function handler(req, res) {
     try {
+        const { spaceId } = req.query;
+
+        if (!spaceId) {
+            return res.status(400).json({ error: "Missing spaceId" });
+        }
+
         const client = await clientPromise;
         const db = client.db("studentcollaboration");
 
-        let spaces;
+        const space = await db.collection("spaces").findOne({
+            _id: new ObjectId(spaceId),
+        });
 
-        if (spaceId) {
-            const space = await db.collection("spaces").findOne({
-                _id: new ObjectId(spaceId)
-            });
-            spaces = space ? [space] : [];
-        } else {
-            spaces = await db.collection("spaces").find().toArray();
+        if (!space || !space.members || space.members.length === 0) {
+            return res.status(404).json({ error: "Invalid space" });
         }
 
         const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+        const lastRotation = space.lastRotation ?? 0;
 
-        const quizCount = space.quizzesThisWeek || 0;
+        // Prevent rotation if not due
+        if (Date.now() - lastRotation < ONE_WEEK) {
+            return res.status(200).json({
+                success: true,
+                message: "Rotation not due yet",
+            });
+        }
+
         const currentLeader = space.leader;
 
-        if (currentLeader) {
-            let pointsChange = 0;
+        // Find current leader index safely
+        let currentIndex = space.members.findIndex(
+            (m) => m.email === currentLeader
+        );
 
-            if (quizCount >= 3) {
-                pointsChange = 40;
-            } else {
-                pointsChange = -20;
-            }
+        if (currentIndex === -1) currentIndex = 0;
 
+        // Count quizzes created by leader since last rotation
+        const quizCount = (space.quizzes || []).filter(
+            (q) =>
+                q.createdBy === currentLeader &&
+                q.createdAt >= lastRotation
+        ).length;
+
+        const pointsChange = quizCount >= 3 ? 40 : 0;
+
+        // Apply points ONLY once
+        if (!space.rotationProcessed && currentLeader) {
             await db.collection("users").updateOne(
                 { email: currentLeader },
                 {
-                    $inc: { points: pointsChange }
+                    $inc: {
+                        points: pointsChange
+                    }
                 }
             );
-        }
 
-        for (let space of spaces) {
-            // Skip if no members
-            if (!space.members || space.members.length === 0) continue;
+            await db.collection("leaderHistory").insertOne({
+                email: currentLeader,
+                spaceId: space._id.toString(),
+                quizzesPosted: quizCount,
+                points: pointsChange,
+                timestamp: Date.now(),
+            });
 
-            // Handle missing leaderIndex
-            const currentIndex = Number.isInteger(space.leaderIndex)
-                ? space.leaderIndex
-                : 0;
-
-            // Handle missing lastRotation
-            const lastRotation = space.lastRotation ?? 0;
-
-            // Rotate only after 7 days
-            if (Date.now() - lastRotation < ONE_WEEK) continue;
-
-            // Calculate next index safely
-            const nextIndex =
-                (currentIndex + 1) % space.members.length;
-
-            const nextMember = space.members[nextIndex];
-
-            //Prevent crash if member invalid
-            if (!nextMember || !nextMember.email) {
-                console.log("Invalid member at index:", nextIndex);
-                continue;
-            }
-
-            const newLeader = nextMember.email;
 
             await db.collection("spaces").updateOne(
-                { _id: new ObjectId(space._id) },
-                {
-                    $set: {
-                        leader: newLeader,
-                        leaderIndex: nextIndex,
-                        lastRotation: Date.now(),
-                        quizzesThisWeek: 0
-                    },
-                }
+                { _id: new ObjectId(spaceId) },
+                { $set: { rotationProcessed: true } }
             );
         }
 
-        res.status(200).json({ success: true });
+        //  Rotate leader
+        const nextIndex = (currentIndex + 1) % space.members.length;
+        const newLeader = space.members[nextIndex].email;
+
+        await db.collection("spaces").updateOne(
+            { _id: new ObjectId(spaceId) },
+            {
+                $set: {
+                    leader: newLeader,
+                    leaderIndex: nextIndex,
+                    lastRotation: Date.now(),
+                    rotationProcessed: false, // reset for NEXT cycle
+                    quizzes: [],
+                },
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            newLeader,
+            quizCount,
+            pointsChange,
+        });
+
     } catch (err) {
         console.error("Rotation error:", err);
-        res.status(500).json({ error: "Rotation failed" });
+        return res.status(500).json({ error: "Rotation failed" });
     }
 }

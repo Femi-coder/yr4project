@@ -51,8 +51,15 @@ export default function Dashboard() {
 
     fetch(`/api/getUserPoints?email=${user.email}`)
       .then(res => res.json())
-      .then(data => setPoints(data.points || 0));
-  }, [user]);
+      .then(data => {
+        setPoints(Math.max(0, data.points || 0));
+
+        setUser(prev => ({
+          ...prev,
+          totalPoints: data.totalPoints || 0
+        }));
+      });
+  }, [user?.email]);
 
   useEffect(() => {
     if (!showRewards) return;
@@ -78,7 +85,7 @@ export default function Dashboard() {
       setRedeemableCount(count);
     });
 
-  }, [user]);
+  }, [user?.email]);
 
   useEffect(() => {
     const storedNotifications = localStorage.getItem("notifications");
@@ -105,14 +112,30 @@ export default function Dashboard() {
   }, [notifications, unreadCount]);
 
   useEffect(() => {
+    if (!router.query.refresh) return;
+
+    const email = localStorage.getItem("userEmail");
+
+    fetch(`/api/getUserPoints?email=${email}`)
+      .then(res => res.json())
+      .then(data => {
+        setPoints(data.points || 0);
+
+        setUser(prev => ({
+          ...prev,
+          totalPoints: data.totalPoints || 0
+        }));
+      });
+  }, [router.query.refresh]);
+
+  useEffect(() => {
     if (!user?.email) return;
 
     fetch(`/api/getUserBreakdown?email=${user.email}`)
       .then(res => res.json())
       .then(data => setMyBreakdown(data))
       .catch(err => console.error("Breakdown error:", err));
-
-  }, [user]);
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user?.email || spaces.length === 0) return;
@@ -189,6 +212,7 @@ export default function Dashboard() {
   );
 
 
+
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
@@ -227,6 +251,7 @@ export default function Dashboard() {
     const days = Math.floor(hours / 24);
     return `${days} day ago`;
   };
+
 
   return (
     <div
@@ -346,7 +371,7 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 text-purple-600 font-medium">
               <span className="text-xl">🏅</span>
-              <span>{points} Current points</span>
+              <span>{Math.max(0, points)} Current points</span>
             </div>
 
             {myBreakdown?.breakdown?.length > 0 && (
@@ -392,7 +417,7 @@ export default function Dashboard() {
             🏆 Top Contributors
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 mb-10">
-            {leaderboard.map((user, index) => {
+            {leaderboard.map((lbUser, index) => {
 
               const medal =
                 index === 0 ? "🥇" :
@@ -402,20 +427,19 @@ export default function Dashboard() {
 
               return (
                 <div
-                  onClick={() => handleUserClick(user)}
+                  onClick={() => handleUserClick(lbUser)}
                   className="bg-gray-50 rounded-xl p-5 text-center shadow-md 
-             cursor-pointer
-             transform hover:-translate-y-2 
-             hover:shadow-xl transition-all duration-300"
+      cursor-pointer transform hover:-translate-y-2 
+      hover:shadow-xl transition-all duration-300"
                 >
                   <div className="text-3xl mb-2">{medal}</div>
 
                   <p className="font-semibold text-gray-800 truncate">
-                    {user.name}
+                    {lbUser.name}
                   </p>
 
                   <p className="text-purple-600 font-bold mt-2">
-                    {user.totalPoints || 0} pts
+                    {lbUser.totalPoints || 0} pts (Total)
                   </p>
                 </div>
               );
@@ -558,9 +582,9 @@ export default function Dashboard() {
             {!loadingBreakdown && selectedUserBreakdown && (
               <>
                 <p className="mb-4 font-medium">
-                  🏅 Current Points:
+                  🏆 Total Points:
                   <span className="text-purple-600">
-                    {selectedUserBreakdown.totalPoints}
+                    {selectedUserBreakdown.totalPoints || 0}
                   </span>
                 </p>
 

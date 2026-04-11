@@ -36,19 +36,20 @@ export default function Rewards() {
   }, []);
 
   useEffect(() => {
-
     const email = localStorage.getItem("userEmail");
 
     fetch(`/api/getRewardHistory?email=${email}`)
       .then(res => res.json())
       .then(data => setHistory(data.history || []));
+  }, []);
 
-  }, [])
-
+  // FIXED progress logic
   const nextReward =
     rewards
       .filter(r => r.cost > points)
-      .sort((a, b) => a.cost - b.cost)[0]?.cost || 100;
+      .sort((a, b) => a.cost - b.cost)[0]?.cost
+    || rewards[rewards.length - 1]?.cost
+    || 100;
 
   const progress = Math.min((points / nextReward) * 100, 100);
 
@@ -61,7 +62,7 @@ export default function Rewards() {
 
       <div className="mb-6">
         <p className="text-gray-600">
-          You have <span className="text-purple-600 font-semibold">{points}</span> points
+          You have <span className="text-purple-600 font-semibold">{points}</span> points available to spend
         </p>
 
         {rewards.length > 0 && (
@@ -80,7 +81,6 @@ export default function Rewards() {
         )}
       </div>
 
-
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {rewards.map((r) => (
@@ -90,9 +90,7 @@ export default function Rewards() {
             transform hover:-translate-y-2 hover:shadow-xl transition-all duration-300"
           >
 
-            {/* TOP (colored header) */}
             <div className="bg-purple-500 text-white p-4 relative">
-
               <div className="absolute -bottom-3 left-4 w-6 h-6 bg-white rounded-full"></div>
               <div className="absolute -bottom-3 right-4 w-6 h-6 bg-white rounded-full"></div>
 
@@ -107,10 +105,8 @@ export default function Rewards() {
               </p>
             </div>
 
-            {/* DOTTED LINE */}
             <div className="border-t border-dashed border-gray-300"></div>
 
-            {/* BOTTOM */}
             <div className="p-4">
 
               <p className="text-sm text-gray-700 mb-2">
@@ -118,7 +114,7 @@ export default function Rewards() {
               </p>
 
               <button
-                disabled={points < r.cost}
+                disabled={!points || points < r.cost}
                 onClick={async () => {
 
                   const res = await fetch("/api/redeemReward", {
@@ -138,12 +134,21 @@ export default function Rewards() {
                   }
 
                   alert("Reward redeemed!");
-                  router.reload();
+
+                  // Update points instantly
+                  setPoints(prev => prev - r.cost);
+
+                  // Refresh history
+                  const email = localStorage.getItem("userEmail");
+
+                  fetch(`/api/getRewardHistory?email=${email}`)
+                    .then(res => res.json())
+                    .then(data => setHistory(data.history || []));
 
                 }}
-                className={`w-full py-2 rounded-md text-sm font-medium ${points < r.cost
-                  ? "bg-red-300 text-gray-400"
-                  : "bg-green-500 text-white hover:bg-gray-800"
+                className={`w-full py-2 rounded-md text-sm font-medium ${!points || points < r.cost
+                    ? "bg-red-300 text-gray-400"
+                    : "bg-green-500 text-white hover:bg-gray-800"
                   }`}
               >
                 Redeem
@@ -152,12 +157,10 @@ export default function Rewards() {
             </div>
 
           </div>
-
-
         ))}
 
-
       </div>
+
       <div className="mt-10">
         <h2 className="text-xl font-semibold text-purple-700 mb-4">
           🎟️ Redeemed Vouchers
@@ -194,4 +197,3 @@ export default function Rewards() {
     </div>
   );
 }
-

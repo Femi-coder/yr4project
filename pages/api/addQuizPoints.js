@@ -1,63 +1,42 @@
 import clientPromise from "../../lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export default async function handler(req, res) {
+  try {
+    const { email, points, quizId, spaceId } = req.body;
 
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
+    const client = await clientPromise;
+    const db = client.db("studentcollaboration");
+
+    const existing = await db.collection("quizAttempts").findOne({
+      quizId,
+      userEmail: email
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: "Already attempted" });
     }
 
-    try {
+    await db.collection("quizAttempts").insertOne({
+      quizId,
+      spaceId,
+      userEmail: email,
+      score: points,
+      completedAt: new Date()
+    });
 
-        const { email, points, quizId, spaceId } = req.body;
-
-        const client = await clientPromise;
-        const db = client.db("studentcollaboration");
-
-        const space = await db.collection("spaces").findOne({
-            _id: new ObjectId(spaceId),
-        });
-
-        if (!space) {
-            return res.status(404).json({ error: "Space not found" });
+    await db.collection("users").updateOne(
+      { email },
+      {
+        $inc: {
+          points: points,
+          totalPoints: points
         }
+      }
+    );
 
-        if (space.leader === email) {
-            return res.status(403).json({
-                error: "Leader cannot take quiz during their leadership period",
-            });
-        }
+    res.status(200).json({ success: true });
 
-        const existingAttempt = await db.collection("quizAttempts").findOne({
-            quizId,
-            userEmail: email
-        });
-
-        if (existingAttempt) {
-            return res.status(400).json({
-                error: "You have already completed this quiz"
-            });
-        }
-
-        //save attempt
-        await db.collection("quizAttempts").insertOne({
-            quizId,
-            spaceId,
-            userEmail: email,
-            score: points,
-            completedAt: new Date()
-        });
-
-        //add points to users
-        await db.collection("users").updateOne(
-            { email },
-            { $inc: { points: points } }
-        );
-
-        res.status(200).json({ success: true });
-
-    } catch (error) {
-        console.error("Add quiz points error:", error);
-        res.status(500).json({ error: "Server error" });
-    }
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 }

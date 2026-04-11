@@ -1,5 +1,4 @@
 import clientPromise from "../../lib/mongodb";
-import { ObjectId } from "mongodb";
 
 const reactionPoints = {
     like: 5,
@@ -8,101 +7,71 @@ const reactionPoints = {
 };
 
 export default async function handler(req, res) {
-    if (req.method !== "GET") {
-        return res.status(405).json({ error: "Method not allowed" });
-    }
-
     try {
         const { email } = req.query;
-
-        if (!email) {
-            return res.status(400).json({ error: "Email required" });
-        }
 
         const client = await clientPromise;
         const db = client.db("studentcollaboration");
 
-        const messages = await db
-            .collection("spaceMessages")
-            .find({ sender: email })
-            .toArray();
+        const spaces = await db.collection("spaces").find({}).toArray();
+
+        const breakdown = [];
 
         let totalPoints = 0;
-        const spaceBreakdown = {};
 
-        for (const msg of messages) {
-            if (!msg.reactions || msg.reactions.length === 0) continue;
+        for (const space of spaces) {
 
-            for (const reaction of msg.reactions) {
-                const points = reactionPoints[reaction.type] || 0;
+            let points = 0;
 
-                totalPoints += points;
+            // Quiz
+            const quizzes = await db.collection("quizAttempts").find({
+                userEmail: email,
+                spaceId: space._id.toString()
+            }).toArray();
 
-                if (!spaceBreakdown[msg.spaceId]) {
-                    spaceBreakdown[msg.spaceId] = 0;
-                }
-
-                spaceBreakdown[msg.spaceId] += points;
-            }
-        }
-
-        const quizAttempts = await db
-            .collection("quizAttempts")
-            .find({ userEmail: email })
-            .toArray();
-
-        for (const attempt of quizAttempts) {
-
-            const quizId = attempt.quizId;
-
-            const space = await db.collection("spaces").findOne({
-                "quizzes._id": new ObjectId(quizId)
+            quizzes.forEach(q => {
+                points += q.score || 0;
             });
 
-            if (!space) continue;
+            // Leader rewards
+            const leaders = await db.collection("leaderHistory").find({
+                email,
+                spaceId: space._id.toString()
+            }).toArray();
 
-            const spaceId = space._id.toString();
+            leaders.forEach(l => {
+                if (l.points > 0) points += l.points;
+            });
 
+            // Reactions
+            const messages = await db.collection("spaceMessages").find({
+                sender: email,
+                spaceId: space._id.toString()
+            }).toArray();
 
-            if (!spaceBreakdown[spaceId]) {
-                spaceBreakdown[spaceId] = 0;
+            messages.forEach(msg => {
+                (msg.reactions || []).forEach(r => {
+                    points += reactionPoints[r.type] || 0;
+                });
+            });
+
+            if (points > 0) {
+                breakdown.push({
+                    spaceName: space.title,
+                    points
+                });
+
+                totalPoints += points;
             }
-
-            spaceBreakdown[spaceId] += attempt.score;
-
-            totalPoints += attempt.score;
         }
 
-        const spaceIds = Object.keys(spaceBreakdown);
-
-        const spaces = await db
-            .collection("spaces")
-            .find({
-                _id: { $in: spaceIds.map((id) => new ObjectId(id)) },
-            })
-            .toArray();
-
-        const spaceMap = {};
-        spaces.forEach((space) => {
-            spaceMap[space._id.toString()] = space.title;
+        res.status(200).json({
+            totalPoints,
+            breakdown
         });
 
-        // Convert object to array
-        const breakdownArray = Object.keys(spaceBreakdown).map((spaceId) => ({
-            spaceId,
-            spaceName: spaceMap[spaceId] || "Unknown Space",
-            points: spaceBreakdown[spaceId],
-        }));
-
-        const user = await db.collection("users").findOne({ email });
-
-        return res.status(200).json({
-            totalPoints: user.points || 0,
-            breakdown: breakdownArray,
-        });
-
-    } catch (error) {
-        console.error("User breakdown error:", error);
-        return res.status(500).json({ error: "Server error" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
     }
 }

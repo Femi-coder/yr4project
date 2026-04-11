@@ -20,6 +20,7 @@ export default async function handler(req, res) {
             type: type || "text",
             content: content || message,
             timestamp,
+            replyTo: req.body.replyTo || null
         });
 
         return res.status(200).json({ success: true });

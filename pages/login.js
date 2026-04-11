@@ -56,12 +56,21 @@ export default function Login() {
                     <p className="text-slate-600 mb-8 max-w-md text-center">
                         Log in to access your study groups, share files, and take part in
                         collaborative projects with your classmates.
+
                     </p>
+                    <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                        Key Features
+                    </h2>
+                    <p>✅ Real-time collaboration</p>
+                    <p>🏆 Gamified rewards system</p>
+                    <p>👑 Rotating leadership</p>
+
                     <img
                         src="/studentcollab.jpg"
                         alt="Students collaborating"
                         className="w-6/5 max-w-xl h-auto object-contain drop-shadow-md"
                     />
+
                 </div>
             </div>
 
@@ -106,8 +115,8 @@ export default function Login() {
                         {message && (
                             <p
                                 className={`text-center text-sm mt-2 ${message.includes("successful")
-                                        ? "text-green-600"
-                                        : "text-red-500"
+                                    ? "text-green-600"
+                                    : "text-red-500"
                                     }`}
                             >
                                 {message}
