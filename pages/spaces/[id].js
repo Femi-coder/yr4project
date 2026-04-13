@@ -356,7 +356,7 @@ export default function DynamicSpace() {
         }
     };
 
-    const sendAudioMessage = (audioUrl) => {
+    const sendAudioMessage = async (audioUrl) => {
 
         const msg = {
             spaceId: id,
@@ -369,6 +369,12 @@ export default function DynamicSpace() {
         };
 
         setMessages(prev => [...prev, msg]);
+
+        await fetch("/api/saveSpaceMessage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(msg),
+        });
 
         socketRef.current.emit("space-message", msg);
     };
