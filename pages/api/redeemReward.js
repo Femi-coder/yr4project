@@ -1,5 +1,6 @@
 import clientPromise from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import nodemailer from "nodemailer";
 
 export default async function handler(req, res) {
 
@@ -46,6 +47,29 @@ export default async function handler(req, res) {
             cost: reward.cost,
             timestamp: new Date()
         });
+
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+        await transporter.sendMail({
+            from: `"Student Collaboration" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: "Reward Redemption Confirmation",
+            html: `
+                <h2>Reward Redeemed</h2>
+                <p>You successfully redeemed:</p>
+                <strong>${reward.name}</strong>
+                <p>Points used: ${reward.cost}</p>
+                <p>Your remaining points have been updated.</p>
+                <br/>
+                <p>Keep engaging to earn more rewards.</p>
+            `,
+        });
+
 
         return res.status(200).json({ success: true });
 

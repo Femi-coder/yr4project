@@ -42,6 +42,14 @@ export default function DynamicSpace() {
 
     const isLeader = space?.leader === currentUserEmail;
 
+    const quizzesThisCycle = (space?.quizzes || []).filter(
+        (q) =>
+            q.createdBy === currentUserEmail &&
+            q.createdAt >= (space?.lastRotation || 0)
+    ).length;
+
+    const quizzesLeft = Math.max(0, 3 - quizzesThisCycle);
+
     const getYouTubeEmbedUrl = (url) => {
         try {
             const parsed = new URL(url);
@@ -424,23 +432,13 @@ export default function DynamicSpace() {
 
                 const audioBlob = new Blob(chunks, { type: "audio/webm" });
 
-                const formData = new FormData();
+                const reader = new FileReader();
 
-                formData.append("audio", audioBlob, "recording.webm");
+                reader.onloadend = () => {
+                    sendAudioMessage(reader.result);
+                };
 
-                const upload = await fetch("/api/uploadAudio", {
-                    method: "POST",
-                    body: formData
-                });
-
-                const data = await upload.json();
-
-                console.log(data);
-
-                if (data.audioUrl) {
-                    sendAudioMessage(data.audioUrl);
-                }
-
+                reader.readAsDataURL(audioBlob);
             };
 
             recorder.start();
@@ -865,6 +863,24 @@ export default function DynamicSpace() {
                     <p className="text-lg text-gray-500 mt-1">
                         ⏳ {getTimeRemaining(space.lastRotation)}
                     </p>
+
+                    {isLeader && (
+                        <div className="mt-2 bg-white p-3 rounded-lg shadow-sm border">
+                            <p className="text-sm font-semibold text-purple-700">
+                                Leader Progress
+                            </p>
+
+                            <p className="text-sm text-gray-700">
+                                {quizzesThisCycle} / 3 quizzes created this cycle
+                            </p>
+
+                            <p className="text-xs text-gray-500 mt-1">
+                                {quizzesThisCycle >= 3
+                                    ? "Reward target achieved"
+                                    : `${quizzesLeft} more quiz${quizzesLeft > 1 ? "zes" : ""} needed`}
+                            </p>
+                        </div>
+                    )}
                     <div className="bg-white rounded-xl shadow p-4 mt-6">
                         <h3 className="text-lg font-semibold text-purple-700 mb-3">
                             🏆 Space Leaderboard

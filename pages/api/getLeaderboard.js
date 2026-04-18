@@ -46,6 +46,15 @@ export default async function handler(req, res) {
                 totalPoints += attempt.score || 0;
             }
 
+            const leaderRewards = await db
+                .collection("leaderHistory")
+                .find({ email: user.email })
+                .toArray();
+
+            leaderRewards.forEach((l) => {
+                totalPoints += l.points || 0;
+            });
+
             leaderboard.push({
                 name: user.name,
                 email: user.email,
@@ -58,6 +67,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
             leaderboard: leaderboard.slice(0, 5),
         });
+
     } catch (error) {
         console.error("Leaderboard error:", error);
         return res.status(500).json({ error: "Server error" });

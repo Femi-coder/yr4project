@@ -55,7 +55,7 @@ export default async function handler(req, res) {
                 });
             });
 
-            if (points > 0) {
+            if (points !== 0) {
                 breakdown.push({
                     spaceName: space.title,
                     points

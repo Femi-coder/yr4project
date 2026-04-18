@@ -383,10 +383,7 @@ export default function Dashboard() {
                 <p className="text-md text-gray-600 mb-3">
                   Total Earned:{" "}
                   <span className="text-purple-700 font-semibold">
-                    {myBreakdown.breakdown.reduce(
-                      (sum, item) => sum + item.points,
-                      0
-                    )} pts
+                    {myBreakdown.totalPoints} pts
                   </span>
                 </p>
                 <div className="flex gap-4 overflow-x-auto pb-2">
