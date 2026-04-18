@@ -261,8 +261,12 @@ export default function DynamicSpace() {
 
         // Receive discussion message
         const handleMsg = (data) => {
-            if (data.sender === currentUserEmail) return;
-            setMessages((prev) => [...prev, data]);
+            setMessages((prev) => {
+                const exists = prev.some((msg) => msg._id === data._id);
+                if (exists) return prev;
+
+                return [...prev, data];
+            });
         };
 
         socket.on("space-message", handleMsg);
@@ -308,6 +312,7 @@ export default function DynamicSpace() {
         if (!chatInput.trim()) return;
 
         const msg = {
+            _id: Date.now().toString(),
             spaceId: id,
             spaceName: space.title,
             sender: currentUserEmail,
