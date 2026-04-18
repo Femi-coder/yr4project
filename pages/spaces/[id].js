@@ -420,7 +420,15 @@ export default function DynamicSpace() {
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            const recorder = new MediaRecorder(stream);
+            let options = {};
+
+            if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+                options.mimeType = "audio/webm;codecs=opus";
+            } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+                options.mimeType = "audio/mp4";
+            }
+
+            const recorder = new MediaRecorder(stream, options);
 
             const chunks = [];
 
@@ -430,7 +438,9 @@ export default function DynamicSpace() {
 
             recorder.onstop = async () => {
 
-                const audioBlob = new Blob(chunks, { type: "audio/webm" });
+                const mimeType = recorder.mimeType || "audio/webm";
+
+                const audioBlob = new Blob(chunks, { type: mimeType });
 
                 const reader = new FileReader();
 
@@ -1174,9 +1184,7 @@ export default function DynamicSpace() {
                                                         {msg.content}
                                                     </a>
                                                 ) : msg.type === "audio" ? (
-                                                    <audio controls>
-                                                        <source src={msg.content} type="audio/webm" />
-                                                    </audio>
+                                                    <audio controls src={msg.content} preload="metadata" />
                                                 ) : (
                                                     <p>{msg.content || msg.message}</p>
                                                 )}
