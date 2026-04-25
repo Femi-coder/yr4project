@@ -174,9 +174,21 @@ export default function Dashboard() {
     });
 
     // Listen for DMs
-    socket.on("receive-message", (data) => {
+    socket.on("dm-notification", (data) => {
       if (data.sender !== user.email) {
-        setHasNotification(true);
+
+        setNotifications(prev => [
+          {
+            type: "dm",
+            sender: data.sender,
+            senderName: data.senderName || data.sender,
+            message: `${data.senderName || data.sender}: sent you a message`,
+            timestamp: Date.now()
+          },
+          ...prev
+        ]);
+
+        setUnreadCount(prev => prev + 1);
       }
     });
 
@@ -305,11 +317,17 @@ export default function Dashboard() {
 
                         setUnreadCount(prev => Math.max(prev - 1, 0));
 
-                        router.push(`/spaces/${n.spaceId}`);
+                        if (n.type === "dm") {
+                          router.push(`/dm/${encodeURIComponent(n.sender)}?name=${encodeURIComponent(n.sender)}`);
+                        } else {
+                          router.push(`/spaces/${n.spaceId}`);
+                        }
                       }}
                       className="p-2 rounded-lg hover:bg-gray-100 cursor-pointer text-sm"
                     >
-                      <p className="font-medium text-gray-800">{n.spaceName}</p>
+                      <p className="font-medium text-gray-800">
+                        {n.type === "dm" ? n.sender : n.spaceName}
+                      </p>
                       <p className="text-gray-700 text-xs">{n.message}</p>
                       <p className="text-gray-400 text-[10px] mt-1">
                         {formatTimeAgo(n.timestamp)}

@@ -46,6 +46,7 @@ export default async function handler(req, res) {
             const db = client.db("studentcollaboration");
 
             const message = {
+                _id: Date.now().toString(),
                 spaceId,
                 sender,
                 name,

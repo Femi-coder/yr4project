@@ -1,5 +1,4 @@
 import clientPromise from "../../lib/mongodb";
-import { ObjectId } from "mongodb";
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
         const db = client.db("studentcollaboration");
 
         const result = await db.collection("spaceMessages").deleteOne({
-            _id: new ObjectId(messageId),
+            _id: messageId,
             sender: userEmail,
         });
 

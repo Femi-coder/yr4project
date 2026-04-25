@@ -15,7 +15,6 @@ export default async function handler(req, res) {
     try {
         const { messageId, reactorEmail, reactionType } = req.body;
 
-        // Basic validation
         if (!messageId || !reactorEmail || !reactionType) {
             return res.status(400).json({ error: "Missing required fields" });
         }
@@ -32,7 +31,7 @@ export default async function handler(req, res) {
 
         // Fetch message
         const message = await messagesCollection.findOne({
-            _id: new ObjectId(messageId),
+            _id: messageId
         });
 
         if (!message) {
@@ -90,7 +89,7 @@ export default async function handler(req, res) {
 
         // Update message reactions
         await messagesCollection.updateOne(
-            { _id: new ObjectId(messageId) },
+            { _id: messageId },
             { $set: { reactions } }
         );
 

@@ -48,6 +48,8 @@ export default function DynamicSpace() {
             q.createdAt >= (space?.lastRotation || 0)
     ).length;
 
+
+
     const quizzesLeft = Math.max(0, 3 - quizzesThisCycle);
 
     const getYouTubeEmbedUrl = (url) => {
@@ -129,6 +131,21 @@ export default function DynamicSpace() {
             hour: "2-digit",
             minute: "2-digit",
         });
+    };
+    const formatDateLabel = (timestamp) => {
+        const date = new Date(timestamp);
+        const today = new Date();
+        const yesterday = new Date();
+
+        yesterday.setDate(today.getDate() - 1);
+
+        const isToday = date.toDateString() === today.toDateString();
+        const isYesterday = date.toDateString() === yesterday.toDateString();
+
+        if (isToday) return "Today";
+        if (isYesterday) return "Yesterday";
+
+        return date.toLocaleDateString();
     };
 
     useEffect(() => {
@@ -262,8 +279,14 @@ export default function DynamicSpace() {
         // Receive discussion message
         const handleMsg = (data) => {
             setMessages((prev) => {
-                const exists = prev.some((msg) => msg._id === data._id);
-                if (exists) return prev;
+                const index = prev.findIndex((msg) => msg._id === data._id);
+
+
+                if (index !== -1) {
+                    const updated = [...prev];
+                    updated[index] = { ...data, optimistic: false };
+                    return updated;
+                }
 
                 return [...prev, data];
             });
@@ -320,7 +343,8 @@ export default function DynamicSpace() {
             type: detectMessageType(chatInput.trim()),
             content: chatInput.trim(),
             timestamp: Date.now(),
-            replyTo: replyingTo || null
+            replyTo: replyingTo || null,
+            optimistic: true
         };
 
         setMessages((prev) => [...prev, msg]);
@@ -372,6 +396,7 @@ export default function DynamicSpace() {
     const sendAudioMessage = async (audioUrl) => {
 
         const msg = {
+            _id: Date.now().toString(),
             spaceId: id,
             spaceName: space.title,
             sender: currentUserEmail,
@@ -379,6 +404,7 @@ export default function DynamicSpace() {
             type: "audio",
             content: audioUrl,
             timestamp: Date.now(),
+            optimistic: true
         };
 
         setMessages(prev => [...prev, msg]);
@@ -696,24 +722,33 @@ export default function DynamicSpace() {
         const [index, setIndex] = useState(0);
         const [score, setScore] = useState(0);
         const [selected, setSelected] = useState(null);
-        const [showResult, setShowResult] = useState(false);
+        const [submitted, setSubmitted] = useState(false);
 
         const current = quiz.questions[index];
 
         return (
             <div className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-2xl shadow-2xl p-10 w-full h-full flex flex-col justify-center">
+
                 <h2 className="text-xl mb-4">{quiz.title}</h2>
 
                 <p className="text-sm text-purple-200 mb-5">
                     Question {index + 1} of {quiz.questions.length}
                 </p>
+
                 <p className="mb-4">{current.question}</p>
 
+                {/* OPTIONS */}
                 {current.options.map((opt, i) => {
 
                     let buttonColor = "bg-white text-purple-700";
 
-                    if (showResult) {
+                    // Selected (before submit)
+                    if (selected === i && !submitted) {
+                        buttonColor = "bg-blue-500 text-white";
+                    }
+
+                    // After submit
+                    if (submitted) {
                         if (i === current.answer) {
                             buttonColor = "bg-green-500 text-white";
                         } else if (i === selected) {
@@ -724,67 +759,9 @@ export default function DynamicSpace() {
                     return (
                         <button
                             key={i}
-                            disabled={showResult}
                             onClick={() => {
-
+                                if (submitted) return;
                                 setSelected(i);
-                                setShowResult(true);
-
-                                let finalScore = score;
-
-                                if (i === current.answer) {
-                                    finalScore = score + 10;
-                                    setScore(prev => prev + 10);
-                                }
-
-                                setTimeout(async () => {
-
-                                    setSelected(null);
-                                    setShowResult(false);
-
-                                    if (index + 1 < quiz.questions.length) {
-                                        setIndex(prev => prev + 1);
-                                    } else {
-                                        const res = await fetch("/api/addQuizPoints", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({
-                                                email: localStorage.getItem("userEmail"),
-                                                points: finalScore,
-                                                quizId: quiz._id,
-                                                spaceId: quiz.spaceId
-                                            })
-                                        });
-
-                                        const data = await res.json();
-
-                                        if (!res.ok) {
-                                            alert(data.error);
-                                            onBack();
-                                            return;
-                                        }
-
-                                        await fetch("/api/saveAnnouncement", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({
-                                                spaceId: id,
-                                                sender: currentUserEmail,
-                                                senderName: currentUserName,
-                                                text: `🏆 ${currentUserName} scored ${finalScore} pts in "${quiz.title}"`,
-                                                level: "quiz",
-                                                timestamp: Date.now()
-                                            })
-                                        });
-                                        router.reload();
-
-
-                                        alert(`Quiz finished! Score: ${finalScore}`);
-                                        onBack();
-                                    }
-
-                                }, 1500);
-
                             }}
                             className={`block w-full px-4 py-2 rounded mb-2 transition ${buttonColor}`}
                         >
@@ -792,6 +769,84 @@ export default function DynamicSpace() {
                         </button>
                     );
                 })}
+
+                {/* SUBMIT BUTTON */}
+                {!submitted && (
+                    <button
+                        onClick={() => {
+                            if (selected === null) {
+                                alert("Please select an answer");
+                                return;
+                            }
+
+                            setSubmitted(true);
+
+                            if (selected === current.answer) {
+                                setScore(prev => prev + 10);
+                            }
+                        }}
+                        className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                        Submit Answer
+                    </button>
+                )}
+
+                {/* NEXT BUTTON */}
+                {submitted && (
+                    <button
+                        onClick={async () => {
+
+                            setSelected(null);
+                            setSubmitted(false);
+
+                            if (index + 1 < quiz.questions.length) {
+                                setIndex(prev => prev + 1);
+                            } else {
+
+                                const finalScore = score;
+
+                                const res = await fetch("/api/addQuizPoints", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        email: localStorage.getItem("userEmail"),
+                                        points: finalScore,
+                                        quizId: quiz._id,
+                                        spaceId: quiz.spaceId
+                                    })
+                                });
+
+                                const data = await res.json();
+
+                                if (!res.ok) {
+                                    alert(data.error);
+                                    onBack();
+                                    return;
+                                }
+
+                                await fetch("/api/saveAnnouncement", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        spaceId: quiz.spaceId,
+                                        sender: localStorage.getItem("userEmail"),
+                                        senderName: localStorage.getItem("userName"),
+                                        text: `🏆 ${localStorage.getItem("userName")} scored ${finalScore} pts in "${quiz.title}"`,
+                                        level: "quiz",
+                                        timestamp: Date.now()
+                                    })
+                                });
+
+                                alert(`Quiz finished! Score: ${finalScore}`);
+                                onBack();
+                            }
+
+                        }}
+                        className="mt-2 bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        Next
+                    </button>
+                )}
 
                 <button onClick={onBack} className="mt-4 underline">
                     Back
@@ -1098,7 +1153,14 @@ export default function DynamicSpace() {
                                             ?.toLowerCase()
                                             .includes(searchChat.toLowerCase())
                                 )
-                                .map((msg, i) => {
+                                .map((msg, i, arr) => {
+
+                                    const currentDate = new Date(msg.timestamp).toDateString();
+                                    const prevDate =
+                                        i > 0 ? new Date(arr[i - 1].timestamp).toDateString() : null;
+
+                                    const showDateDivider = currentDate !== prevDate;
+
                                     const isMe = msg.sender === currentUserEmail;
 
                                     const parentMessage = messages.find(
@@ -1106,171 +1168,198 @@ export default function DynamicSpace() {
                                     );
 
                                     return (
-                                        <div
-                                            key={i}
-                                            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                                        >
-                                            <div
-                                                className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
-                                                    ? "bg-purple-600 text-white rounded-br-none"
-                                                    : "bg-gray-200 text-gray-800 rounded-bl-none"
-                                                    }`}
-                                            >
-                                                <div className="flex justify-end">
-                                                    {isMe && (
-                                                        <div className="relative">
-                                                            <button
-                                                                onClick={() =>
-                                                                    setOpenMenu(openMenu === msg._id ? null : msg._id)
-                                                                }
-                                                                className="text-xs text-gray-300 hover:text-white"
-                                                            >
-                                                                ⋮
-                                                            </button>
+                                        <div key={msg._id || i}>
 
-                                                            {openMenu === msg._id && (
-                                                                <div className="absolute right-0 mt-1 bg-white shadow rounded text-xl z-10">
-                                                                    <button
-                                                                        onClick={() => handleDelete(msg._id)}
-                                                                        className="block px-3 py-2 hover:bg-gray-100 text-red-500"
-                                                                    >
-                                                                        Delete
-                                                                    </button>
-                                                                </div>
-                                                            )}
+                                            {/* DATE DIVIDER */}
+                                            {showDateDivider && (
+                                                <div className="flex justify-center my-3">
+                                                    <span className="bg-gray-300 text-gray-700 text-xs px-3 py-1 rounded-full">
+                                                        {formatDateLabel(msg.timestamp)}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* MESSAGE */}
+                                            <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                                <div
+                                                    className={`w-fit max-w-[85%] px-4 py-2 rounded-lg shadow-sm ${isMe
+                                                        ? "bg-purple-600 text-white rounded-br-none"
+                                                        : "bg-gray-200 text-gray-800 rounded-bl-none"
+                                                        }`}
+                                                >
+
+                                                    <div className="flex justify-end">
+                                                        {isMe && (
+                                                            <div className="relative">
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setOpenMenu(openMenu === msg._id ? null : msg._id)
+                                                                    }
+                                                                    className="text-xs text-gray-300 hover:text-white"
+                                                                >
+                                                                    ⋮
+                                                                </button>
+
+                                                                {openMenu === msg._id && (
+                                                                    <div className="absolute right-0 mt-1 bg-white shadow rounded text-xl z-10">
+                                                                        <button
+                                                                            onClick={() => handleDelete(msg._id)}
+                                                                            className="block px-3 py-2 hover:bg-gray-100 text-red-500"
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* NAME */}
+                                                    <p className="text-xs font-semibold mb-1">
+                                                        {isMe ? "You" : msg.name}
+                                                    </p>
+
+                                                    {/*  REPLY PREVIEW */}
+                                                    {parentMessage && (
+                                                        <div className="bg-gray-200 text-black text-xs p-2 rounded mb-1">
+                                                            <strong>
+                                                                {parentMessage.sender === currentUserEmail
+                                                                    ? "You"
+                                                                    : parentMessage.name || "User"}
+                                                                :
+                                                            </strong>{" "}
+
+                                                            {parentMessage.type === "audio"
+                                                                ? "🎤 Audio message"
+                                                                : parentMessage.type === "image"
+                                                                    ? "🖼️ Image"
+                                                                    : parentMessage.type === "file"
+                                                                        ? "📎 File"
+                                                                        : parentMessage.type === "youtube"
+                                                                            ? "📺 YouTube video"
+                                                                            : parentMessage.type === "link"
+                                                                                ? "🔗 Link"
+                                                                                : parentMessage.content}
                                                         </div>
                                                     )}
-                                                </div>
-                                                {/* NAME */}
-                                                <p className="text-xs font-semibold mb-1">
-                                                    {isMe ? "You" : msg.name}
-                                                </p>
 
-                                                {/*  REPLY PREVIEW */}
-                                                {parentMessage && (
-                                                    <div className="bg-gray-200 text-black text-xs p-2 rounded mb-1">
-                                                        <strong>{parentMessage.name || "User"}:</strong>{" "}
-                                                        {parentMessage.content}
-                                                    </div>
-                                                )}
-
-                                                {/* MESSAGE TYPE */}
-                                                {msg.type === "file" ? (
-                                                    <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
-                                                        <p className="text-sm font-semibold">
-                                                            {msg.originalName}
-                                                        </p>
+                                                    {/* MESSAGE TYPE */}
+                                                    {msg.type === "file" ? (
+                                                        <div className="bg-white text-gray-800 rounded-xl p-4 shadow-md w-full max-w-sm">
+                                                            <p className="text-sm font-semibold">
+                                                                {msg.originalName}
+                                                            </p>
+                                                            <a
+                                                                href={msg.fileUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-purple-600 text-sm underline"
+                                                            >
+                                                                View
+                                                            </a>
+                                                        </div>
+                                                    ) : msg.type === "youtube" ? (
+                                                        <iframe
+                                                            src={getYouTubeEmbedUrl(msg.content)}
+                                                            className="w-full max-w-md aspect-video rounded"
+                                                            allowFullScreen
+                                                        />
+                                                    ) : msg.type === "image" ? (
+                                                        <img
+                                                            src={msg.content}
+                                                            className="rounded-lg max-w-sm"
+                                                        />
+                                                    ) : msg.type === "link" ? (
                                                         <a
-                                                            href={msg.fileUrl}
+                                                            href={msg.content}
                                                             target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-purple-600 text-sm underline"
+                                                            className="text-purple-600 underline"
                                                         >
-                                                            Download
+                                                            {msg.content}
                                                         </a>
-                                                    </div>
-                                                ) : msg.type === "youtube" ? (
-                                                    <iframe
-                                                        src={getYouTubeEmbedUrl(msg.content)}
-                                                        className="w-full max-w-md aspect-video rounded"
-                                                        allowFullScreen
-                                                    />
-                                                ) : msg.type === "image" ? (
-                                                    <img
-                                                        src={msg.content}
-                                                        className="rounded-lg max-w-sm"
-                                                    />
-                                                ) : msg.type === "link" ? (
-                                                    <a
-                                                        href={msg.content}
-                                                        target="_blank"
-                                                        className="text-purple-600 underline"
-                                                    >
-                                                        {msg.content}
-                                                    </a>
-                                                ) : msg.type === "audio" ? (
-                                                    <audio controls src={msg.content} preload="metadata" />
-                                                ) : (
-                                                    <p>{msg.content || msg.message}</p>
-                                                )}
-
-                                                {/* TIME */}
-                                                <p className="text-[10px] opacity-70 mt-1 text-right">
-                                                    {formatTime(msg.timestamp)}
-                                                </p>
-
-                                                {/* BUTTONS */}
-                                                <div className="flex flex-col mt-2 gap-1">
-                                                    {isLeader && (
-                                                        <button
-                                                            onClick={async () => {
-                                                                const res = await fetch("/api/pinMessage", {
-                                                                    method: "POST",
-                                                                    headers: {
-                                                                        "Content-Type": "application/json",
-                                                                    },
-                                                                    body: JSON.stringify({
-                                                                        messageId: msg._id,
-                                                                    }),
-                                                                });
-
-                                                                const data = await res.json();
-
-                                                                if (!res.ok) {
-                                                                    alert(data.error || "Failed to pin message");
-                                                                    return;
-                                                                }
-
-                                                                router.reload();
-                                                            }}
-                                                            className="text-xs mt-2 text-yellow-600 hover:underline"
-                                                        >
-                                                            📌 Pin
-                                                        </button>
+                                                    ) : msg.type === "audio" ? (
+                                                        <audio controls src={msg.content} preload="metadata" />
+                                                    ) : (
+                                                        <p>{msg.content || msg.message}</p>
                                                     )}
 
-                                                    <button
-                                                        onClick={() => setReplyingTo(msg._id)}
-                                                        className="text-xs mt-2 text-purple-400 hover:underline"
-                                                    >
-                                                        Reply
-                                                    </button>
-                                                </div>
+                                                    {/* TIME */}
+                                                    <p className="text-[10px] opacity-70 mt-1 text-right">
+                                                        {formatTime(msg.timestamp)}
+                                                    </p>
 
-                                                {/*  REACTIONS */}
-                                                <div className="flex gap-3 mt-2 text-sm">
-                                                    {["like", "clap", "fire"].map(
-                                                        (type) => {
-                                                            const count =
-                                                                msg.reactions?.filter(
-                                                                    (r) => r.type === type
-                                                                ).length || 0;
+                                                    {/* BUTTONS */}
+                                                    <div className="flex flex-col mt-2 gap-1">
+                                                        {isLeader && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const res = await fetch("/api/pinMessage", {
+                                                                        method: "POST",
+                                                                        headers: {
+                                                                            "Content-Type": "application/json",
+                                                                        },
+                                                                        body: JSON.stringify({
+                                                                            messageId: msg._id,
+                                                                        }),
+                                                                    });
 
-                                                            const emojiMap = {
-                                                                like: "👍",
-                                                                clap: "👏",
-                                                                fire: "🔥",
-                                                            };
+                                                                    const data = await res.json();
 
-                                                            return (
-                                                                <button
-                                                                    key={type}
-                                                                    onClick={() =>
-                                                                        handleReaction(
-                                                                            msg._id,
-                                                                            type
-                                                                        )
+                                                                    if (!res.ok) {
+                                                                        alert(data.error || "Failed to pin message");
+                                                                        return;
                                                                     }
-                                                                    className="flex items-center gap-1 hover:scale-110 transition"
-                                                                >
-                                                                    <span>
-                                                                        {emojiMap[type]}
-                                                                    </span>
-                                                                    <span>{count}</span>
-                                                                </button>
-                                                            );
-                                                        }
-                                                    )}
+
+                                                                    router.reload();
+                                                                }}
+                                                                className="text-xs mt-2 text-yellow-600 hover:underline"
+                                                            >
+                                                                📌 Pin
+                                                            </button>
+                                                        )}
+
+                                                        <button
+                                                            onClick={() => setReplyingTo(msg._id)}
+                                                            className="text-xs mt-2 text-purple-400 hover:underline"
+                                                        >
+                                                            Reply
+                                                        </button>
+                                                    </div>
+
+                                                    {/*  REACTIONS */}
+                                                    <div className="flex gap-3 mt-2 text-sm">
+                                                        {["like", "clap", "fire"].map(
+                                                            (type) => {
+                                                                const count =
+                                                                    msg.reactions?.filter(
+                                                                        (r) => r.type === type
+                                                                    ).length || 0;
+
+                                                                const emojiMap = {
+                                                                    like: "👍",
+                                                                    clap: "👏",
+                                                                    fire: "🔥",
+                                                                };
+
+                                                                return (
+                                                                    <button
+                                                                        key={type}
+                                                                        onClick={() =>
+                                                                            handleReaction(
+                                                                                msg._id,
+                                                                                type
+                                                                            )
+                                                                        }
+                                                                        className="flex items-center gap-1 hover:scale-110 transition"
+                                                                    >
+                                                                        <span>
+                                                                            {emojiMap[type]}
+                                                                        </span>
+                                                                        <span>{count}</span>
+                                                                    </button>
+                                                                );
+                                                            }
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
